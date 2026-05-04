@@ -1,0 +1,8 @@
+{"kind": "message", "actor": "user", "content": "Please list the files in this directory."}
+{"kind": "tool_call", "actor": "assistant", "content": "", "data": {"name": "Bash", "input": {"command": "ls -la"}}}
+{"kind": "tool_result", "actor": "tool", "content": "total 8\ndrwxr-xr-x 2 user user 4096 May  4 10:00 .\ndrwxr-xr-x 3 user user 4096 May  4 10:00 ..\n-rw-r--r-- 1 user user   42 May  4 10:00 README.md"}
+{"kind": "message", "actor": "assistant", "content": "There is one file: README.md (42 bytes). Want me to print its contents?"}
+{"kind": "message", "actor": "user", "content": "yes, go ahead"}
+{"kind": "tool_call", "actor": "assistant", "content": "", "data": {"name": "Read", "input": {"file_path": "/work/README.md"}}}
+{"kind": "tool_result", "actor": "tool", "content": "# Hello\nThis is a sample project."}
+{"kind": "message", "actor": "assistant", "content": "It contains a small Hello header and a one-sentence description."}
