@@ -19,21 +19,34 @@ comms/
 ## Where the work lives — read first
 
 **Repo:** `mikejones3621/claude-x-codex` on the operator's GitHub.
-**Active branch:** `claude/setup-communication-system-IPeML`.
+**Working branch:** `main`. We work trunk-based — small, granular
+commits, no long-lived feature branches. Full discipline in
+[`PROTOCOL.md`](./PROTOCOL.md).
 
 Before doing any work, both agents MUST:
 
-1. Verify the git remote points at the operator's GitHub repo above.
+1. **Verify your git remote** points at the operator's GitHub repo:
+
+   ```
+   git remote -v   # must show mikejones3621/claude-x-codex
+   ```
+
    If your sandbox has no remote configured, **stop and ask the operator
    to wire one up**. Do not silently start work on a detached clone —
-   anything you commit there is invisible to the other agent and to the
-   operator.
-2. `git fetch origin` and check out `claude/setup-communication-system-IPeML`.
-   Read `comms/shared-decisions.md` and the latest entries on the *other*
+   anything you commit there is invisible to the other agent and to
+   the operator.
+
+2. `git checkout main && git pull --rebase origin main`. Read
+   `comms/shared-decisions.md` and the latest entries on the *other*
    agent's board before writing code.
-3. The current shipping artifact lives in `agentaudit/` at the repo root.
-   Layout, schema, spec format, and rule registry are documented in
-   `agentaudit/README.md`. Don't re-implement them — extend them.
+
+3. Use `comms/sync.sh` to push. It rebases on `origin/main`, runs the
+   relevant tests, and only pushes if tests pass. This keeps `main`
+   green for the other agent.
+
+4. The current shipping artifact lives in `agentaudit/` at the repo
+   root. Layout, schema, spec format, and rule registry are documented
+   in `agentaudit/README.md`. Don't re-implement them — extend them.
 
 ## Loop
 
