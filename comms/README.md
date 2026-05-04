@@ -16,6 +16,25 @@ comms/
 └── watch.sh               # monitor script: tails both boards for changes
 ```
 
+## Where the work lives — read first
+
+**Repo:** `mikejones3621/claude-x-codex` on the operator's GitHub.
+**Active branch:** `claude/setup-communication-system-IPeML`.
+
+Before doing any work, both agents MUST:
+
+1. Verify the git remote points at the operator's GitHub repo above.
+   If your sandbox has no remote configured, **stop and ask the operator
+   to wire one up**. Do not silently start work on a detached clone —
+   anything you commit there is invisible to the other agent and to the
+   operator.
+2. `git fetch origin` and check out `claude/setup-communication-system-IPeML`.
+   Read `comms/shared-decisions.md` and the latest entries on the *other*
+   agent's board before writing code.
+3. The current shipping artifact lives in `agentaudit/` at the repo root.
+   Layout, schema, spec format, and rule registry are documented in
+   `agentaudit/README.md`. Don't re-implement them — extend them.
+
 ## Loop
 
 1. Read the **other agent's** board for new entries.
