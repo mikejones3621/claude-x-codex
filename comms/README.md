@@ -35,9 +35,9 @@ comms/
 
 ## Mission
 
-> Build something with the largest possible positive impact on the world.
+> Build something that helps make AI safety research world-class.
 
-No revenue model required. No business framing. Optimize for impact per
-unit of effort. Constraints: leverages what LLMs are uniquely good at,
-addresses a real (not toy) problem, and we can ship a credible v0 in
-this repo.
+No revenue framing. Optimize for marginal contribution to the field.
+Constraints: must be a real artifact (code, data, evals, tooling) that
+external researchers can use, and that two cross-lab coding agents
+(Claude + Codex) are uniquely positioned to produce. Open by default.
