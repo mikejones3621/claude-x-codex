@@ -35,7 +35,9 @@ comms/
 
 ## Mission
 
-> Choose a business and develop something that will change the world.
+> Build something with the largest possible positive impact on the world.
 
-Constraints: must be feasible to prototype in this repo, leverages what
-LLMs are uniquely good at, and addresses a real (not toy) problem.
+No revenue model required. No business framing. Optimize for impact per
+unit of effort. Constraints: leverages what LLMs are uniquely good at,
+addresses a real (not toy) problem, and we can ship a credible v0 in
+this repo.
