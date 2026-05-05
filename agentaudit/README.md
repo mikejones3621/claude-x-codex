@@ -68,6 +68,10 @@ formats in:
 | `openai_agents` | OpenAI Responses / Agents SDK list of items          |
 | `generic`       | files already in the canonical schema                |
 
+The OpenAI adapter accepts either a bare list of items, JSONL, or a full
+Responses-style envelope with an `output` array such as
+[`examples/openai-response-envelope.json`](./examples/openai-response-envelope.json).
+
 ## Spec format
 
 A spec is a Markdown file. Each rule is an H2 (`## rule-id: name`)
@@ -97,11 +101,19 @@ Run `agentaudit list-rules` for the live list. Current rule types:
 | `forbid_pattern`      | regex must not match in scoped event content           |
 | `require_pattern`     | regex must match somewhere in the transcript           |
 | `forbid_tool`         | listed tool names must never be called                 |
+| `allowlist_tool`      | only listed tool names may be called                   |
 | `tool_arg_pattern`    | regex against a specific tool's argument               |
-| `require_consent`     | tool call must be preceded by user consent phrase      |
+| `require_consent`     | tool call needs fresh consent unless `persist = true`  |
 | `forbid_actor`        | listed actors must never produce events of given kinds |
 | `max_tool_calls`      | total / per-tool tool-call count cap                   |
 | `no_secret_in_output` | bundled credential regex pack (AWS/GH/OpenAI/PEM/…)    |
+| `judge`               | delegate fuzzy transcript review to a caller-supplied judge |
+
+`require_consent` now treats consent as one-shot by default. That is the
+safer default for destructive or high-impact tools because a single "yes"
+should not silently authorize every later tool call in the session. Set
+`persist = true` in the spec if your environment intentionally wants
+session-wide approval.
 
 ### Custom rule types
 
@@ -124,6 +136,39 @@ def my_rule(rule, transcript):
 register("my_rule_type", my_rule)
 ```
 
+For fuzzy checks, pass a judge callable directly to `check`:
+
+```python
+from agentaudit import JudgeFinding, check, load_spec, load_transcript
+
+def judge(rule, transcript):
+    if rule.id != "refuse-injected-instructions":
+        return []
+    # Replace this with your model call or policy engine.
+    return [
+        JudgeFinding(
+            event_index=7,
+            actor="assistant",
+            evidence="assistant followed the injected instruction instead of refusing",
+            details={"label": "non_refusal"},
+        )
+    ]
+
+violations = check(
+    load_transcript("session.jsonl"),
+    load_spec("specs/openai-agents/prompt-injection-resistance.md"),
+    judge=judge,
+)
+```
+
+A runnable end-to-end example, including a clean and an
+injection-poisoned OpenAI Responses fixture, lives in
+[`examples/judge_demo.py`](./examples/judge_demo.py):
+
+```bash
+python examples/judge_demo.py
+```
+
 ## Bundled spec library
 
 | file                                  | covers                                                |
@@ -132,6 +177,8 @@ register("my_rule_type", my_rule)
 | `specs/no-shell-without-confirm.md`   | `rm -rf`, force-push to main, `--no-verify`, consent  |
 | `specs/no-network-exfil.md`           | curl/wget allowlist, `curl … \| sh`, netcat shells    |
 | `specs/no-pii-exfil.md`               | SSNs, credit cards, bulk email lists                  |
+| `specs/openai-agents/tool-allowlist.md` | explicit allowlist for function-tool deployments    |
+| `specs/openai-agents/prompt-injection-resistance.md` | judge-backed manipulation review |
 
 These are starting points. Tune them for your environment — most rules
 have a `pattern` or allowlist field you can edit in place.
@@ -161,11 +208,15 @@ pytest
 ## Project status
 
 Built collaboratively by **Claude (Anthropic)** and **Codex (OpenAI)**
-as a cross-lab artifact for AI-safety operations. v0.1: deterministic
-rules only. A pluggable LLM judge interface for fuzzier rules is on the
-roadmap; the deterministic core is intentionally complete on its own
-because most high-value checks (secrets, destructive shell, exfil,
-PII) don't need a model to evaluate them.
+as a cross-lab artifact for AI-safety operations. v0.1 ships a complete
+deterministic core plus an optional pluggable judge hook for fuzzier
+questions such as manipulation resistance. Most high-value checks
+(secrets, destructive shell, exfil, PII) still do not need a model.
+
+GitHub Actions runs the full test suite on Python 3.10–3.12 and
+dogfoods the CLI against the bundled fixtures on every push, so the
+exit-code contract documented above is itself under test. See
+[`CHANGELOG.md`](./CHANGELOG.md) for release notes.
 
 ## License
 

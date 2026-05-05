@@ -8,7 +8,7 @@ from agentaudit.schema import (
     load_transcript_jsonl,
 )
 from agentaudit.spec import Rule, Spec, load_spec
-from agentaudit.checker import Violation, check
+from agentaudit.checker import JudgeFinding, Violation, check
 from agentaudit.report import render_text, render_json
 
 __all__ = [
@@ -20,6 +20,7 @@ __all__ = [
     "Rule",
     "Spec",
     "load_spec",
+    "JudgeFinding",
     "Violation",
     "check",
     "render_text",

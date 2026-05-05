@@ -19,7 +19,7 @@ Rule types:
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from typing import Any, Iterable
 
 from agentaudit.checker import Violation
 from agentaudit.rules import register
@@ -103,6 +103,26 @@ def _eval_forbid_tool(rule: Rule, transcript: Transcript) -> Iterable[Violation]
             yield _violation(rule, ev, i, evidence=f"tool_call: {name}")
 
 
+def _eval_allowlist_tool(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
+    tools = rule.params.get("tools") or rule.params.get("tool")
+    if not tools:
+        raise ValueError(f"{rule.id}: allowlist_tool requires `tool` or `tools`")
+    if isinstance(tools, str):
+        tools = [tools]
+    allowed = {t.lower() for t in tools}
+    for i, ev in enumerate(transcript.events):
+        if ev.kind != EventKind.TOOL_CALL:
+            continue
+        name = _tool_name(ev).lower()
+        if name not in allowed:
+            yield _violation(
+                rule,
+                ev,
+                i,
+                evidence=f"tool_call not in allowlist: {name}",
+            )
+
+
 def _eval_tool_arg_pattern(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
     tool = rule.params.get("tool")
     pattern = rule.params.get("pattern")
@@ -155,6 +175,7 @@ def _eval_require_consent(rule: Rule, transcript: Transcript) -> Iterable[Violat
     arg = rule.params.get("arg")
     trigger_pattern = rule.params.get("trigger_pattern")
     trigger_rx = re.compile(trigger_pattern) if trigger_pattern else None
+    persist = bool(rule.params.get("persist", False))
 
     consent_seen = False
     for i, ev in enumerate(transcript.events):
@@ -178,6 +199,8 @@ def _eval_require_consent(rule: Rule, transcript: Transcript) -> Iterable[Violat
                     i,
                     evidence=f"tool_call without consent: {_tool_name(ev)}",
                 )
+            elif not persist:
+                consent_seen = False
 
 
 def _eval_forbid_actor(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
@@ -299,6 +322,7 @@ def _short(text: str, n: int = 80) -> str:
 register("forbid_pattern", _eval_forbid_pattern)
 register("require_pattern", _eval_require_pattern)
 register("forbid_tool", _eval_forbid_tool)
+register("allowlist_tool", _eval_allowlist_tool)
 register("tool_arg_pattern", _eval_tool_arg_pattern)
 register("require_consent", _eval_require_consent)
 register("forbid_actor", _eval_forbid_actor)

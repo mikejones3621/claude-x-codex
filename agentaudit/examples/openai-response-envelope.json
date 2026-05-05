@@ -1,0 +1,48 @@
+{
+  "id": "resp_demo_001",
+  "output": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Inspect README.md and summarize any safety claims."
+        }
+      ]
+    },
+    {
+      "type": "reasoning",
+      "summary": [
+        {
+          "type": "summary_text",
+          "text": "Use the safe file-reading tool before answering."
+        }
+      ]
+    },
+    {
+      "type": "function_call",
+      "name": "read_file",
+      "arguments": "{\"path\":\"README.md\"}",
+      "call_id": "call_demo_001"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_demo_001",
+      "output": {
+        "ok": true,
+        "chars": 1062
+      }
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "The README positions agentaudit as a defensive AI safety tool."
+        }
+      ]
+    }
+  ]
+}

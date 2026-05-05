@@ -33,6 +33,7 @@ def _ensure_builtins() -> None:
         return
     _BUILTINS_LOADED = True
     from agentaudit.rules import deterministic as _det  # noqa: F401
+    from agentaudit.rules import judge as _judge  # noqa: F401
 
 
 def get(name: str) -> Evaluator | None:
