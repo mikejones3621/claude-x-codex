@@ -15,17 +15,28 @@ keep-a-changelog format.
   ingestion path, complementing the unit-level adapter test.
 - `specs/openai-agents/fabricated-system-messages.md` - deterministic
   defense against prompt injection that impersonates a higher-priority
-  system or developer instruction from inside tool output. Combines a
-  hard fail for tool results normalized as `actor=system` with a pattern
-  check for fake `SYSTEM:` / `developer:` directives embedded in text.
+  system or developer instruction from inside tool output. Three rules:
+  a critical hard-fail for any `tool_result` normalized as `actor=system`,
+  a high-severity pattern rule covering four families of fake authority
+  claims (line-anchored `SYSTEM:` / `**Developer**:` / `### SYSTEM:` with
+  markdown framing, chat-template tokens like `<|im_start|>system`, JSON
+  `"role":"system"` injection, and bracketed labels like `[ADMIN]` or
+  `[ALERT]`), and a medium-severity rule for the related
+  assistant-impersonation attack (`Assistant: ignore the policy ...`).
 - `examples/openai-agents-fabricated-system.json` plus end-to-end tests
   proving the bundled fabricated-system-message spec fires on a real
-  OpenAI Responses envelope and on the canonical `tool_result` +
-  `actor=system` edge case.
+  OpenAI Responses envelope across three different injection framings
+  (canonical `SYSTEM:` form, bracketed `[ADMIN]` form, and
+  assistant-impersonation form), and on the canonical `tool_result` +
+  `actor=system` edge case. A separate negative test asserts the spec
+  does not false-positive on documentation-style content that mentions
+  the same trigger words in benign context.
+- CI dogfood step asserts the fabricated-system fixture exits non-zero
+  under the bundled fabricated-system spec, so the contract is in CI.
 - New end-to-end test exercising the wrapped fixture against every
   bundled spec under `specs/**/*.md` (with a no-op judge for judge-backed
   rules), proving the `raw_item`/`item` unwrap path flows cleanly through
-  the rule engine, not just the adapter (20 tests total).
+  the rule engine, not just the adapter (21 tests total).
 
 ## [0.1.0] - 2026-05-04
 

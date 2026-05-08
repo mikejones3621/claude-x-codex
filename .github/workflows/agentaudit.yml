@@ -89,3 +89,16 @@ jobs:
             echo "expected non-zero exit on openai-agents-bad.json, got 0" >&2
             exit 1
           fi
+      - name: Fabricated-system fixture must trip the fabricated-system spec
+        working-directory: agentaudit
+        run: |
+          set +e
+          agentaudit check examples/openai-agents-fabricated-system.json \
+              --adapter openai_agents \
+              --spec specs/openai-agents/fabricated-system-messages.md
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "expected non-zero exit on openai-agents-fabricated-system.json, got 0" >&2
+            exit 1
+          fi

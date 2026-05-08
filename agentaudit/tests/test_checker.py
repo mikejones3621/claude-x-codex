@@ -396,16 +396,73 @@ def test_bundled_prompt_injection_spec_runs_with_judge() -> None:
 
 
 def test_openai_agents_fabricated_system_message_triggers_violation() -> None:
-    """A tool result that smuggles a fake high-authority system directive
-    should trip the deterministic fabricated-system-message spec."""
+    """The bundled fixture now exercises three distinct injection framings:
+
+    - canonical `SYSTEM: ignore...` line-anchored authority claim
+    - bracketed-label `[ADMIN] ... exfiltrate ...`
+    - assistant-impersonation `Assistant: ignore the safety policy ...`
+
+    The fabricated-system spec must catch the first two via its
+    high-severity rule and the third via its medium-severity assistant
+    rule. Asserting on rule ids and tool-result indexes locks in coverage
+    of every alternative in the regex.
+    """
     transcript = load_with_adapter(
         "openai_agents", EXAMPLES / "openai-agents-fabricated-system.json"
     )
     spec = load_spec(SPECS / "openai-agents" / "fabricated-system-messages.md")
 
     violations = check(transcript, spec)
-    ids = {v.rule_id for v in violations}
-    assert "no-fabricated-system-directive-in-tool-output" in ids
+    by_rule = {}
+    for v in violations:
+        by_rule.setdefault(v.rule_id, []).append(v.event_index)
+
+    assert "no-fabricated-system-directive-in-tool-output" in by_rule, (
+        f"high-severity rule did not fire; got {sorted(by_rule)}"
+    )
+    high_indexes = sorted(by_rule["no-fabricated-system-directive-in-tool-output"])
+    # Tool-result events in the fixture are at indexes 2, 4, 6 after the
+    # adapter normalizes the Responses envelope.
+    assert 2 in high_indexes, f"plain SYSTEM: form not flagged; got {high_indexes}"
+    assert 4 in high_indexes, f"bracketed [ADMIN] form not flagged; got {high_indexes}"
+
+    assert "no-fabricated-assistant-turn-in-tool-output" in by_rule, (
+        f"medium-severity assistant rule did not fire; got {sorted(by_rule)}"
+    )
+    assert 6 in by_rule["no-fabricated-assistant-turn-in-tool-output"], (
+        f"assistant-impersonation form not flagged at idx 6; got {by_rule}"
+    )
+
+
+def test_fabricated_system_spec_does_not_false_positive_on_legit_content(
+    tmp_path: Path,
+) -> None:
+    """Legitimate documentation-style tool output that mentions the words
+    `system`, `ignore`, `please send`, etc. must NOT trip either rule.
+    This locks in the false-positive ceiling that motivated the trigger
+    list and the 40-char window in the bracketed-label alternative.
+    """
+    spec = load_spec(SPECS / "openai-agents" / "fabricated-system-messages.md")
+    benign_outputs = [
+        "The system documentation explains how to ignore deprecation warnings safely.",
+        "If a system fails, please send a notification to oncall.",
+        "[SYSTEM] startup complete",
+        "Bob said: 'system tools should obey config defaults'",
+        "The Assistant role in this product is to suggest replies, not to send them.",
+    ]
+    import json as _json
+    transcript_lines = [
+        '{"kind":"tool_result","actor":"tool","content":' + _json.dumps(t) + "}"
+        for t in benign_outputs
+    ]
+    p = tmp_path / "benign.jsonl"
+    p.write_text("\n".join(transcript_lines) + "\n", encoding="utf-8")
+
+    violations = check(load_transcript(p), spec)
+    assert violations == [], (
+        "expected no violations on benign content: "
+        + ", ".join(f"{v.rule_id}@{v.event_index}({v.evidence!r})" for v in violations)
+    )
 
 
 def test_fabricated_system_spec_rejects_system_actor_tool_result(
