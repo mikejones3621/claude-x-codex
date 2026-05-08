@@ -43,8 +43,13 @@ keep-a-changelog format.
   Levels: `false`/`None` (no-op), `true`/`"basic"` (NFKC + zero-width strip),
   `"strict"` (basic + curated Cyrillic→Latin homoglyph fold). Unknown levels
   raise loudly so a typo in a spec cannot silently disable the protection.
-- `forbid_pattern` and `require_pattern` now read `normalize = ...` from the
-  rule and apply that normalisation to event content before regex matching.
+- `forbid_pattern`, `require_pattern`, `tool_arg_pattern`, and
+  `no_secret_in_output` all read `normalize = ...` from the rule and apply
+  that normalisation to the matched haystack before regex evaluation. Tool
+  name lookups (`forbid_tool` / `allowlist_tool` / `require_consent`) are
+  intentionally not normalised — agent runtimes typically forbid weird
+  characters in tool names, so the practical attack surface is the rule
+  arguments and free-text content, both of which are now covered.
 - The bundled `fabricated-system-messages.md` spec opts into
   `normalize = "strict"`, which lets us delete the inline zero-width
   character classes from the pattern (recovering readability) while

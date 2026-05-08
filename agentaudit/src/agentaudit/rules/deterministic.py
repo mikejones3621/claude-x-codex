@@ -145,6 +145,7 @@ def _eval_tool_arg_pattern(rule: Rule, transcript: Transcript) -> Iterable[Viola
             haystack = str(_extract_arg(ev, arg))
         else:
             haystack = _flatten(ev.data) + " " + ev.content
+        haystack = normalize_for_match(haystack, rule.params.get("normalize"))
         m = rx.search(haystack)
         if m:
             yield _violation(rule, ev, i, evidence=_snippet(haystack, m))
@@ -280,10 +281,12 @@ def _eval_no_secret_in_output(rule: Rule, transcript: Transcript) -> Iterable[Vi
         extra = [extra]
     patterns = list(_SECRET_PATTERNS) + [(p, "custom") for p in extra]
     compiled = [(re.compile(p), tag) for p, tag in patterns]
+    norm = rule.params.get("normalize")
     for i, ev in enumerate(transcript.events):
         if ev.kind not in kinds:
             continue
         haystack = ev.content + "\n" + _flatten(ev.data)
+        haystack = normalize_for_match(haystack, norm)
         for rx, tag in compiled:
             m = rx.search(haystack)
             if m:
