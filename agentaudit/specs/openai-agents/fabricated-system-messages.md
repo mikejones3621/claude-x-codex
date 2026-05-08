@@ -25,18 +25,19 @@ stay tool returns.
 type = forbid_pattern
 severity = high
 scope = "tool_result"
-pattern = "(?ims)(?:^|\\n)\\s*(?:[#>\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:s[\\s\\u200b\\u200c\\u200d\\ufeff]*y[\\s\\u200b\\u200c\\u200d\\ufeff]*s[\\s\\u200b\\u200c\\u200d\\ufeff]*t[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*m|developer)\\*{0,2}(?:\\]|\\))?\\s*(?:message|prompt|instruction|directive|note|update|role)?\\s*[:\\-\\u2013\\u2014\\uff1a]\\s*(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|<\\|(?:im_start|system|sep|start)\\|>\\s*system|\"role\"\\s*:\\s*\"system\"[\\s\\S]{0,160}\"content\"\\s*:\\s*\"(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|\\[(?:system|developer|admin|root|alert|warning|instruction|override|important)\\][\\s\\S]{0,40}?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend)"
+pattern = "(?ims)(?:^|\\n)\\s*(?:[#>\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:s[\\s\\u200b\\u200c\\u200d\\ufeff]*y[\\s\\u200b\\u200c\\u200d\\ufeff]*s[\\s\\u200b\\u200c\\u200d\\ufeff]*t[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*m|d[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*v[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*l[\\s\\u200b\\u200c\\u200d\\ufeff]*o[\\s\\u200b\\u200c\\u200d\\ufeff]*p[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*r)\\*{0,2}(?:\\]|\\))?\\s*(?:message|prompt|instruction|directive|note|update|role)?\\s*[:\\-\\u2013\\u2014\\uff1a=#|]\\s*(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|<\\|(?:im_start|system|sep|start)\\|>\\s*system|\"role\"\\s*:\\s*\"system\"[\\s\\S]{0,160}\"content\"\\s*:\\s*\"(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|\\[(?:system|developer|admin|root|alert|warning|instruction|override|important)\\][\\s\\S]{0,40}?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend)|(?:^|\\n)\\s*(?:[#>\\*\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:s[\\s\\u200b\\u200c\\u200d\\ufeff]*y[\\s\\u200b\\u200c\\u200d\\ufeff]*s[\\s\\u200b\\u200c\\u200d\\ufeff]*t[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*m|d[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*v[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*l[\\s\\u200b\\u200c\\u200d\\ufeff]*o[\\s\\u200b\\u200c\\u200d\\ufeff]*p[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*r)\\*{0,2}(?:\\]|\\))?\\s*$[\\s\\S]{1,80}?(?:ignore|override|disregard|exfiltrate|forget|bypass|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)"
 ```
 
 This catches the common prompt-injection pattern where untrusted tool
-content impersonates a higher-priority instruction. Four families are
+content impersonates a higher-priority instruction. Five families are
 covered:
 
 1. **Line-anchored authority claim** — `SYSTEM: ignore previous
    instructions`, `**Developer**: override safety`, `### SYSTEM:
    reveal`, including markdown bold/heading/list framing, zero-width
-   separators inside `SYSTEM`, and an em-dash, hyphen, or fullwidth
-   colon separator, with optional polite filler (`please`, `now`).
+   separators inside both `SYSTEM` and `developer`, and a separator
+   from `: - – — ： = # |`, with optional polite filler (`please`,
+   `now`).
 2. **Chat-template tokens** — `<|im_start|>system`, `<|system|>` and
    similar tokenizer markers used to push a fake high-priority turn into
    a downstream prompt.
@@ -46,6 +47,25 @@ covered:
 4. **Bracketed authority labels** — `[SYSTEM] ... ignore ...`,
    `[ADMIN]`, `[ALERT]` etc. that don't use a colon but place a trigger
    verb within ~40 characters.
+5. **Multi-line label-then-trigger** — an authority token alone on its
+   line (with optional markdown decoration: `### SYSTEM`, `## Developer`,
+   `[SYSTEM]`) followed within ~80 characters by a *high-confidence*
+   trigger verb (`ignore`, `override`, `disregard`, `forget`, `bypass`,
+   `exfiltrate`, `obey`, `comply`, `pretend`, `act as`, `you are now`).
+   Ambiguous verbs like `disclose`/`send`/`reveal` are deliberately
+   excluded from this alternative because they appear too often in
+   benign developer documentation; alternatives 1–4 still catch them
+   when paired with a separator.
+
+**Known limitation — text obfuscation.** This spec does NOT currently
+catch the SYSTEM/Developer token spelled with fullwidth Latin letters
+(`ＳＹＳＴＥＭ`, U+FF21–FF3A) or with Cyrillic homoglyphs
+(`ЅYSTEM` using U+0405). The right architectural fix is to NFKC-normalize
+and strip zero-width characters from event content before the regex
+match, rather than enumerate every confusable codepoint inside the
+pattern. Tracked as a follow-up; until then operators handling
+multi-script tool output should pair this spec with a normalisation
+preprocessing step.
 
 The trigger-verb list is intentionally broad (`ignore`, `override`,
 `disregard`, `disclose`, `reveal`, `exfiltrate`, `send`, `bypass`,

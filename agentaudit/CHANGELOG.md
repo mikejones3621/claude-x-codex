@@ -36,7 +36,22 @@ keep-a-changelog format.
 - New end-to-end test exercising the wrapped fixture against every
   bundled spec under `specs/**/*.md` (with a no-op judge for judge-backed
   rules), proving the `raw_item`/`item` unwrap path flows cleanly through
-  the rule engine, not just the adapter (21 tests total).
+  the rule engine, not just the adapter.
+
+### Hardened (fabricated-system spec, two adversarial passes)
+- First pass (codex) closed three obfuscation classes: zero-width
+  separators inside `SYSTEM`, fullwidth colon `：`, and JSON `role:system`
+  payloads with polite filler before the trigger verb.
+- Second pass (claude) closed four more bypass classes that survived the
+  first pass: zero-width separators inside `developer`, alternative
+  separators (`#`, `=`, `|`), and a new fifth regex alternative for
+  multi-line label-then-trigger attacks (`### SYSTEM\n...ignore...`)
+  with a deliberately tightened trigger verb set to avoid
+  false-positives on legitimate `## Developer` / `## System` documentation.
+- A documented known limitation (homoglyph obfuscation: fullwidth Latin
+  letters and Cyrillic look-alikes) is pinned in a regression test so
+  whoever lands NFKC normalisation at the rule layer will know to flip
+  the assertion. 25 tests total; CI dogfood unchanged.
 
 ## [0.1.0] - 2026-05-04
 
