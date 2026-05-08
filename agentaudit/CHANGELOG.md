@@ -38,6 +38,23 @@ keep-a-changelog format.
   rules), proving the `raw_item`/`item` unwrap path flows cleanly through
   the rule engine, not just the adapter.
 
+### Architectural — `normalize` parameter for pattern rules
+- New `agentaudit.text` module exposes `normalize_for_match(content, level)`.
+  Levels: `false`/`None` (no-op), `true`/`"basic"` (NFKC + zero-width strip),
+  `"strict"` (basic + curated Cyrillic→Latin homoglyph fold). Unknown levels
+  raise loudly so a typo in a spec cannot silently disable the protection.
+- `forbid_pattern` and `require_pattern` now read `normalize = ...` from the
+  rule and apply that normalisation to event content before regex matching.
+- The bundled `fabricated-system-messages.md` spec opts into
+  `normalize = "strict"`, which lets us delete the inline zero-width
+  character classes from the pattern (recovering readability) while
+  *gaining* coverage of fullwidth Latin (`ＳＹＳＴＥＭ`) and Cyrillic
+  homoglyph (`ЅYSTEM`, `ЅYЅTЕМ`) attacks. The previously-pinned "known
+  limitation" test is now a positive assertion that those cases trigger.
+- 16 new unit tests for `normalize_for_match` lock in NFKC behaviour,
+  zero-width stripping, the strict-mode fold table, and the unknown-level
+  error path.
+
 ### Hardened (fabricated-system spec, two adversarial passes)
 - First pass (codex) closed three obfuscation classes: zero-width
   separators inside `SYSTEM`, fullwidth colon `：`, and JSON `role:system`

@@ -25,7 +25,8 @@ stay tool returns.
 type = forbid_pattern
 severity = high
 scope = "tool_result"
-pattern = "(?ims)(?:^|\\n)\\s*(?:[#>\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:s[\\s\\u200b\\u200c\\u200d\\ufeff]*y[\\s\\u200b\\u200c\\u200d\\ufeff]*s[\\s\\u200b\\u200c\\u200d\\ufeff]*t[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*m|d[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*v[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*l[\\s\\u200b\\u200c\\u200d\\ufeff]*o[\\s\\u200b\\u200c\\u200d\\ufeff]*p[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*r)\\*{0,2}(?:\\]|\\))?\\s*(?:message|prompt|instruction|directive|note|update|role)?\\s*[:\\-\\u2013\\u2014\\uff1a=#|]\\s*(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|<\\|(?:im_start|system|sep|start)\\|>\\s*system|\"role\"\\s*:\\s*\"system\"[\\s\\S]{0,160}\"content\"\\s*:\\s*\"(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|\\[(?:system|developer|admin|root|alert|warning|instruction|override|important)\\][\\s\\S]{0,40}?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend)|(?:^|\\n)\\s*(?:[#>\\*\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:s[\\s\\u200b\\u200c\\u200d\\ufeff]*y[\\s\\u200b\\u200c\\u200d\\ufeff]*s[\\s\\u200b\\u200c\\u200d\\ufeff]*t[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*m|d[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*v[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*l[\\s\\u200b\\u200c\\u200d\\ufeff]*o[\\s\\u200b\\u200c\\u200d\\ufeff]*p[\\s\\u200b\\u200c\\u200d\\ufeff]*e[\\s\\u200b\\u200c\\u200d\\ufeff]*r)\\*{0,2}(?:\\]|\\))?\\s*$[\\s\\S]{1,80}?(?:ignore|override|disregard|exfiltrate|forget|bypass|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)"
+normalize = "strict"
+pattern = "(?ims)(?:^|\\n)\\s*(?:[#>\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:system|developer)\\*{0,2}(?:\\]|\\))?\\s*(?:message|prompt|instruction|directive|note|update|role)?\\s*[:\\-\\u2013\\u2014=#|]\\s*(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|<\\|(?:im_start|system|sep|start)\\|>\\s*system|\"role\"\\s*:\\s*\"system\"[\\s\\S]{0,160}\"content\"\\s*:\\s*\"(?:please\\s+|kindly\\s+|now\\s+|just\\s+)?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)|\\[(?:system|developer|admin|root|alert|warning|instruction|override|important)\\][\\s\\S]{0,40}?(?:ignore|override|disregard|disclose|reveal|exfiltrate|send|bypass|forget|obey|comply|pretend)|(?:^|\\n)\\s*(?:[#>\\*\\-]+\\s*)?(?:\\[|\\()?\\*{0,2}(?:system|developer)\\*{0,2}(?:\\]|\\))?\\s*$[\\s\\S]{1,80}?(?:ignore|override|disregard|exfiltrate|forget|bypass|obey|comply|pretend|act\\s+as|you\\s+are\\s+now)"
 ```
 
 This catches the common prompt-injection pattern where untrusted tool
@@ -57,15 +58,16 @@ covered:
    benign developer documentation; alternatives 1–4 still catch them
    when paired with a separator.
 
-**Known limitation — text obfuscation.** This spec does NOT currently
-catch the SYSTEM/Developer token spelled with fullwidth Latin letters
-(`ＳＹＳＴＥＭ`, U+FF21–FF3A) or with Cyrillic homoglyphs
-(`ЅYSTEM` using U+0405). The right architectural fix is to NFKC-normalize
-and strip zero-width characters from event content before the regex
-match, rather than enumerate every confusable codepoint inside the
-pattern. Tracked as a follow-up; until then operators handling
-multi-script tool output should pair this spec with a normalisation
-preprocessing step.
+**Normalisation.** This rule sets `normalize = "strict"`, which causes
+the rule engine to apply NFKC normalisation, strip zero-width characters
+(U+200B / U+200C / U+200D / U+FEFF), and fold a curated Cyrillic→Latin
+homoglyph table on event content before the regex matches. That handles
+fullwidth Latin (`ＳＹＳＴＥＭ`), Cyrillic look-alikes (`ЅYSTEM`),
+zwsp-injected `S​Y​S​T​E​M` and `D​e​v​e​l​o​p​e​r`,
+and the fullwidth colon `：` for free, so the regex itself stays
+readable. See `agentaudit.text` for the normalisation table; operators
+who do not want to fold non-Latin scripts can drop down to
+`normalize = "basic"` (NFKC + zero-width strip only) or `normalize = false`.
 
 The trigger-verb list is intentionally broad (`ignore`, `override`,
 `disregard`, `disclose`, `reveal`, `exfiltrate`, `send`, `bypass`,

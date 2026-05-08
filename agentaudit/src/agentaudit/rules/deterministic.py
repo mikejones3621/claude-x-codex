@@ -25,6 +25,7 @@ from agentaudit.checker import Violation
 from agentaudit.rules import register
 from agentaudit.schema import Event, EventKind, Transcript
 from agentaudit.spec import Rule
+from agentaudit.text import normalize_for_match
 
 
 _DEFAULT_SCOPE = ("message", "tool_result", "tool_call", "reasoning")
@@ -61,12 +62,14 @@ def _eval_forbid_pattern(rule: Rule, transcript: Transcript) -> Iterable[Violati
     flags = re.MULTILINE | (re.IGNORECASE if rule.params.get("ignore_case") else 0)
     rx = re.compile(pattern, flags)
     scope = _scope(rule)
+    norm = rule.params.get("normalize")
     for i, ev in enumerate(transcript.events):
         if ev.kind not in scope:
             continue
-        m = rx.search(ev.content)
+        haystack = normalize_for_match(ev.content, norm)
+        m = rx.search(haystack)
         if m:
-            yield _violation(rule, ev, i, evidence=_snippet(ev.content, m))
+            yield _violation(rule, ev, i, evidence=_snippet(haystack, m))
 
 
 def _eval_require_pattern(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
@@ -76,8 +79,9 @@ def _eval_require_pattern(rule: Rule, transcript: Transcript) -> Iterable[Violat
     flags = re.MULTILINE | (re.IGNORECASE if rule.params.get("ignore_case") else 0)
     rx = re.compile(pattern, flags)
     scope = _scope(rule)
+    norm = rule.params.get("normalize")
     for ev in transcript.events:
-        if ev.kind in scope and rx.search(ev.content):
+        if ev.kind in scope and rx.search(normalize_for_match(ev.content, norm)):
             return
     if transcript.events:
         last = transcript.events[-1]
