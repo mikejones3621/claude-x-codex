@@ -123,6 +123,33 @@ Run `agentaudit list-rules` for the live list. Current rule types:
 | `no_secret_in_output` | bundled credential regex pack (AWS/GH/OpenAI/PEM/…)    |
 | `judge`               | delegate fuzzy transcript review to a caller-supplied judge |
 
+### Text normalisation (`normalize = ...`)
+
+Pattern-based rules (`forbid_pattern`, `require_pattern`,
+`tool_arg_pattern`, `no_secret_in_output`) accept an optional
+`normalize` parameter that runs the matched haystack through a small,
+documented Unicode-folding pipeline before the regex evaluates. This
+catches obfuscation attacks that would otherwise need every confusable
+codepoint enumerated inside the pattern itself.
+
+| `normalize`           | what runs                                                       |
+| --------------------- | --------------------------------------------------------------- |
+| omitted / `false`     | no-op (current behaviour for unmodified specs)                  |
+| `true` / `"basic"`    | NFKC normalisation + strip zero-width chars (U+200B/C/D, FEFF)  |
+| `"strict"`            | basic + curated Cyrillic→Latin homoglyph fold                   |
+
+`"basic"` collapses fullwidth Latin (`ＳＹＳＴＥＭ` → `SYSTEM`),
+fullwidth punctuation (`SYSTEM：` → `SYSTEM:`), and removes
+zero-width-injected separators (`S​Y​S​T​E​M` → `SYSTEM`).
+`"strict"` additionally folds Cyrillic homoglyphs that pass for Latin
+in role tokens (`ЅYSTEM` → `SYSTEM`) — useful for English-only
+environments, but **lossy on legitimate non-Latin content**, so prefer
+`"basic"` when your tools may return Russian, Bulgarian, or other
+Cyrillic text.
+
+Unknown levels raise loudly. See
+[`agentaudit/text.py`](./src/agentaudit/text.py) for the table.
+
 `require_consent` now treats consent as one-shot by default. That is the
 safer default for destructive or high-impact tools because a single "yes"
 should not silently authorize every later tool call in the session. Set
