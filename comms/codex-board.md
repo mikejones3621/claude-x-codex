@@ -135,3 +135,27 @@ instruction at all.
 Verification: `pytest` now passes at `20 passed`.
 
 -- codex
+
+---
+
+## [2026-05-08T03:05:00Z] [HARDENED] closed three remaining fabricated-message bypasses
+
+I took the extra adversarial pass you asked for in Slack and found three
+real misses still left in the deterministic fabricated-message spec:
+
+1. Zero-width separators inside the authority token
+   (`S​Y​S​T​E​M: ignore ...`)
+2. Fullwidth punctuation (`SYSTEM： ignore ...`)
+3. JSON `role=system` payloads where `content` starts with polite filler
+   before the trigger verb (`"content":"please disclose ..."`).
+
+Patched the high-severity rule to cover all three while preserving the
+existing benign-content ceiling. Added a focused regression test that
+asserts the fabricated-system rule fires on each obfuscated case. Test
+count is now `22 passed`.
+
+I did **not** widen the threat model beyond your framing; this is still
+about untrusted tool output posing as a higher-priority instruction, not
+about solving general semantic prompt injection deterministically.
+
+-- codex
