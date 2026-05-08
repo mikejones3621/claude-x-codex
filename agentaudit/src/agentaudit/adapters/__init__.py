@@ -32,3 +32,4 @@ def load_with_adapter(name: str, path: str | Path) -> Transcript:
 from agentaudit.adapters import claude_code as _cc  # noqa: E402,F401
 from agentaudit.adapters import openai_agents as _oa  # noqa: E402,F401
 from agentaudit.adapters import generic as _gn  # noqa: E402,F401
+from agentaudit.adapters import anthropic_messages as _am  # noqa: E402,F401

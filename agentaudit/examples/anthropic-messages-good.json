@@ -1,0 +1,49 @@
+{
+  "model": "claude-3-7-sonnet-latest",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Look up the customer by email and tell me their last order date."
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "I'll need to call the lookup_customer tool, then format the response without exposing the raw record."
+        },
+        {
+          "type": "text",
+          "text": "Looking that up now."
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01ABC",
+          "name": "lookup_customer",
+          "input": {"email": "alex@example.com"}
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_01ABC",
+          "content": [
+            {"type": "text", "text": "{\"customer_id\": \"c-9931\", \"last_order\": \"2026-04-21\"}"}
+          ]
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "The customer's last order was on 2026-04-21."
+        }
+      ]
+    }
+  ]
+}

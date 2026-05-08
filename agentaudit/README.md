@@ -62,11 +62,20 @@ A **transcript** is an ordered stream of `Event`s:
 The native format is one JSON event per line. Adapters bring other
 formats in:
 
-| adapter         | input                                                |
-| --------------- | ---------------------------------------------------- |
-| `claude_code`   | Claude Code session JSONL                            |
-| `openai_agents` | OpenAI Responses / Agents SDK list of items          |
-| `generic`       | files already in the canonical schema                |
+| adapter              | input                                                |
+| -------------------- | ---------------------------------------------------- |
+| `claude_code`        | Claude Code session JSONL                            |
+| `anthropic_messages` | Anthropic Messages API conversation history          |
+| `openai_agents`      | OpenAI Responses / Agents SDK list of items          |
+| `generic`            | files already in the canonical schema                |
+
+The `anthropic_messages` adapter accepts the request-shape envelope
+(`{"messages": [...]}`), a bare list of messages, the response-shape
+envelope (single assistant turn at the top level), or JSONL with one
+message per line. See
+[`examples/anthropic-messages-good.json`](./examples/anthropic-messages-good.json)
+for a worked example covering text / thinking / tool_use / tool_result
+blocks.
 
 The OpenAI adapter accepts either a bare list of items, JSONL, a full
 Responses-style envelope with an `output` array such as

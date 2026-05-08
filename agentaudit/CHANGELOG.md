@@ -38,6 +38,21 @@ keep-a-changelog format.
   rules), proving the `raw_item`/`item` unwrap path flows cleanly through
   the rule engine, not just the adapter.
 
+### New adapter — Anthropic Messages API
+- `agentaudit/adapters/anthropic_messages.py` accepts the canonical
+  Anthropic Messages API conversation-history shape: request envelope
+  (`{"messages": [...]}`), bare list, response envelope (single
+  assistant turn), or JSONL. Handles text / thinking / tool_use /
+  tool_result blocks; tool_use becomes `tool_call` events with
+  `actor=assistant`, tool_result becomes `tool_result` events with
+  `actor=tool` (matching the existing claude_code convention so rules
+  written against `actor="tool"` apply unchanged).
+- `examples/anthropic-messages-good.json` worked fixture.
+- 12 unit tests in `test_anthropic_messages_adapter.py` covering all
+  four input shapes, every block type, the `is_error` flag,
+  unknown-block-type silent-drop, and an end-to-end pass against the
+  bundled cross-lab spec set.
+
 ### Architectural — `normalize` parameter for pattern rules
 - New `agentaudit.text` module exposes `normalize_for_match(content, level)`.
   Levels: `false`/`None` (no-op), `true`/`"basic"` (NFKC + zero-width strip),
