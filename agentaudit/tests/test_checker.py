@@ -395,6 +395,55 @@ def test_bundled_prompt_injection_spec_runs_with_judge() -> None:
     assert violations[0].severity == "high"
 
 
+def test_openai_agents_wrapped_good_passes_all_bundled_specs() -> None:
+    """End-to-end exercise of the Agents SDK item-wrapping path.
+
+    `examples/openai-agents-wrapped-good.json` is shaped the way the real
+    OpenAI Agents SDK emits run items (`message_output_item`,
+    `tool_call_item`, `tool_call_output_item`, `reasoning_item`, each with
+    a `raw_item` payload). It must:
+
+      1. Normalize cleanly through the openai_agents adapter — every raw_item
+         gets unwrapped, no events are dropped or duplicated.
+      2. Pass every bundled spec under `specs/**/*.md`. That includes
+         `specs/openai-agents/tool-allowlist.md` (only read_file, search_docs,
+         submit_ticket are used) and `prompt-injection-resistance.md` (which
+         is judge-backed, so we pass a no-op judge).
+    """
+    transcript = load_with_adapter(
+        "openai_agents", EXAMPLES / "openai-agents-wrapped-good.json"
+    )
+
+    kinds = [e.kind.value for e in transcript.events]
+    assert kinds == [
+        "message",
+        "reasoning",
+        "tool_call",
+        "tool_result",
+        "tool_call",
+        "tool_result",
+        "tool_call",
+        "tool_result",
+        "message",
+    ]
+    tool_names = [e.data["name"] for e in transcript.events if e.kind.value == "tool_call"]
+    assert tool_names == ["search_docs", "read_file", "submit_ticket"]
+    assert transcript.events[2].data["input"] == {"query": "retry semantics"}
+    assert transcript.events[4].data["input"] == {"path": "docs/retry.md"}
+
+    def noop_judge(rule, tx):
+        return []
+
+    violations = []
+    for spec_file in sorted(SPECS.rglob("*.md")):
+        spec = load_spec(spec_file)
+        violations.extend(check(transcript, spec, judge=noop_judge))
+
+    assert violations == [], "expected zero violations: " + ", ".join(
+        f"{v.rule_id}@{v.event_index}" for v in violations
+    )
+
+
 def test_judge_rule_requires_callable(tmp_path: Path) -> None:
     spec_md = (
         "## injection-check: refuse prompt injection\n\n"

@@ -65,6 +65,16 @@ jobs:
             echo "expected non-zero exit on bad-transcript.jsonl, got 0" >&2
             exit 1
           fi
+      - name: Clean OpenAI Agents wrapped envelope must pass every bundled deterministic spec
+        working-directory: agentaudit
+        run: |
+          agentaudit check examples/openai-agents-wrapped-good.json \
+              --adapter openai_agents \
+              --spec specs/no-secret-leak.md \
+              --spec specs/no-shell-without-confirm.md \
+              --spec specs/no-network-exfil.md \
+              --spec specs/no-pii-exfil.md \
+              --spec specs/openai-agents/tool-allowlist.md
       - name: OpenAI Agents bad envelope must trip the tool allowlist
         working-directory: agentaudit
         run: |

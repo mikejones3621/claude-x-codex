@@ -68,9 +68,14 @@ formats in:
 | `openai_agents` | OpenAI Responses / Agents SDK list of items          |
 | `generic`       | files already in the canonical schema                |
 
-The OpenAI adapter accepts either a bare list of items, JSONL, or a full
+The OpenAI adapter accepts either a bare list of items, JSONL, a full
 Responses-style envelope with an `output` array such as
-[`examples/openai-response-envelope.json`](./examples/openai-response-envelope.json).
+[`examples/openai-response-envelope.json`](./examples/openai-response-envelope.json),
+or Agents SDK-style runner items where each entry wraps the actual
+payload under `raw_item` (see
+[`examples/openai-agents-wrapped-good.json`](./examples/openai-agents-wrapped-good.json)
+for a worked example covering `message_output_item`, `tool_call_item`,
+`tool_call_output_item`, and `reasoning_item`).
 
 ## Spec format
 

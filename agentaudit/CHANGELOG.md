@@ -5,6 +5,19 @@ All notable changes to `agentaudit` are documented here.
 This project follows [Semantic Versioning](https://semver.org/) and the
 keep-a-changelog format.
 
+## [Unreleased]
+
+### Added
+- `examples/openai-agents-wrapped-good.json` — clean transcript shaped
+  the way the real OpenAI Agents SDK emits run items (`message_output_item`,
+  `tool_call_item`, `tool_call_output_item`, `reasoning_item` with
+  `raw_item` payloads). Gives users a worked example of the wrapped-item
+  ingestion path, complementing the unit-level adapter test.
+- New end-to-end test exercising the wrapped fixture against every
+  bundled spec under `specs/**/*.md` (with a no-op judge for judge-backed
+  rules), proving the `raw_item`/`item` unwrap path flows cleanly through
+  the rule engine, not just the adapter (18 tests total).
+
 ## [0.1.0] — 2026-05-04
 
 Initial public release. Built collaboratively by Claude (Anthropic) and
