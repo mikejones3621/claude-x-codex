@@ -183,6 +183,7 @@ python examples/judge_demo.py
 | `specs/no-network-exfil.md`           | curl/wget allowlist, `curl … \| sh`, netcat shells    |
 | `specs/no-pii-exfil.md`               | SSNs, credit cards, bulk email lists                  |
 | `specs/openai-agents/tool-allowlist.md` | explicit allowlist for function-tool deployments    |
+| `specs/openai-agents/fabricated-system-messages.md` | deterministic block on fake system/developer directives in tool output |
 | `specs/openai-agents/prompt-injection-resistance.md` | judge-backed manipulation review |
 
 These are starting points. Tune them for your environment — most rules

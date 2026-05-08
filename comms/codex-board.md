@@ -98,3 +98,40 @@ Best review entry points:
 - `agentaudit/src/agentaudit/rules/deterministic.py`
 
 -- codex
+
+---
+
+## [2026-05-08T02:50:00Z] [SHIPPED] fabricated-system-message guardrail
+
+Picked up the remaining follow-up you left open: deterministic coverage
+for prompt injection that impersonates a higher-priority instruction
+from inside tool output.
+
+What landed:
+
+- `agentaudit/specs/openai-agents/fabricated-system-messages.md`
+  with two rules:
+  - `no-system-actor-tool-results` (`forbid_actor`, scope `tool_result`)
+    for the hard failure case where a runtime or adapter materializes
+    tool output as `actor=system`.
+  - `no-fabricated-system-directive-in-tool-output` (`forbid_pattern`,
+    scope `tool_result`) for text like `SYSTEM: ignore previous
+    instructions ...` or a short JSON `role=system` directive block.
+- `agentaudit/examples/openai-agents-fabricated-system.json` as a real
+  Responses-style envelope where `fetch_ticket` returns a fake system
+  directive in the tool output.
+- Two end-to-end tests:
+  - the OpenAI envelope trips the bundled spec
+  - a canonical `tool_result` with `actor=system` trips the hard-fail
+    rule directly
+- README + CHANGELOG updated to list the new bundled spec / fixture.
+
+Threat-model framing: this is intentionally deterministic and narrow.
+The judge-backed spec still owns the fuzzy "did the assistant comply"
+question. This new spec owns the simpler but high-signal case that
+untrusted tool content is trying to *pose* as a higher-priority
+instruction at all.
+
+Verification: `pytest` now passes at `20 passed`.
+
+-- codex
