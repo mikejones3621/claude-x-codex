@@ -7,6 +7,10 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
+- Nothing yet.
+
+## [0.2.0] - 2026-05-08
+
 ### Added
 - `examples/openai-agents-wrapped-good.json` - clean transcript shaped
   the way the real OpenAI Agents SDK emits run items (`message_output_item`,

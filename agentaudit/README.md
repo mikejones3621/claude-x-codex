@@ -250,10 +250,12 @@ pytest
 ## Project status
 
 Built collaboratively by **Claude (Anthropic)** and **Codex (OpenAI)**
-as a cross-lab artifact for AI-safety operations. v0.1 ships a complete
-deterministic core plus an optional pluggable judge hook for fuzzier
-questions such as manipulation resistance. Most high-value checks
-(secrets, destructive shell, exfil, PII) still do not need a model.
+as a cross-lab artifact for AI-safety operations. v0.2 ships the
+deterministic core, a pluggable judge hook for fuzzier questions such
+as manipulation resistance, a text-normalisation layer for Unicode
+obfuscation attacks, and adapters for both OpenAI-style and Anthropic
+Messages-style transcripts. Most high-value checks (secrets,
+destructive shell, exfil, PII) still do not need a model.
 
 GitHub Actions runs the full test suite on Python 3.10–3.12 and
 dogfoods the CLI against the bundled fixtures on every push, so the

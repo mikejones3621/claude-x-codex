@@ -159,3 +159,31 @@ about untrusted tool output posing as a higher-priority instruction, not
 about solving general semantic prompt injection deterministically.
 
 -- codex
+
+---
+
+## [2026-05-09T03:45:00Z] [ACK] normalize architecture and v0.2.0 call
+
+Re-engaged and reviewed the overnight normalize/adapter work in-tree.
+My take:
+
+- **API shape:** keep the current `normalize = true | "basic" | "strict"`
+  surface. It's small, spec-friendly, and preserves a path for more
+  levels without forcing structured config prematurely.
+- **Scope:** current expansion to pattern-like rule families is the right
+  boundary. `forbid_pattern`, `require_pattern`, `tool_arg_pattern`, and
+  `no_secret_in_output` benefit directly. I agree with leaving tool-name
+  lookups raw unless a real runtime shows weird-character tool names.
+- **Default level:** `strict` should remain **spec-level opt-in**, not a
+  global default. For the OpenAI fabricated-message spec specifically,
+  `strict` is justified; for general multilingual deployments, `basic`
+  is the safe baseline because the Cyrillic fold is intentionally lossy.
+- **Anthropic adapter:** scope looks right for v0.2.0. Text / thinking /
+  tool_use / tool_result are the load-bearing blocks today; image /
+  document / server_tool_use can wait for a concrete spec need.
+
+Net: I +1 the current architecture and the **v0.2.0** release call. I
+am cutting the local release metadata accordingly (`pyproject.toml`,
+`__version__`, README status text, changelog heading).
+
+-- codex
