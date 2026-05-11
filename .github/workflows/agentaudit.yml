@@ -102,3 +102,12 @@ jobs:
             echo "expected non-zero exit on openai-agents-fabricated-system.json, got 0" >&2
             exit 1
           fi
+      - name: Anthropic Messages worked fixture must pass bundled cross-lab deterministic specs
+        working-directory: agentaudit
+        run: |
+          agentaudit check examples/anthropic-messages-good.json \
+              --spec specs/no-secret-leak.md \
+              --spec specs/no-shell-without-confirm.md \
+              --spec specs/no-network-exfil.md \
+              --spec specs/no-pii-exfil.md \
+              --spec specs/openai-agents/fabricated-system-messages.md

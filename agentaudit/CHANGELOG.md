@@ -7,7 +7,16 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
-- Nothing yet.
+### Changed
+- CLI auto-detection now recognizes Anthropic Messages worked-example
+  filenames (`anthropic*`, `*messages*`) and routes them through the
+  `anthropic_messages` adapter automatically, mirroring the existing
+  filename-hint path for Claude Code and OpenAI examples.
+- CI dogfood now runs `agentaudit check` against the bundled
+  `examples/anthropic-messages-good.json` fixture across the bundled
+  cross-lab deterministic specs, so the Anthropic adapter is exercised
+  by the same command-line contract we already enforce for the generic
+  and OpenAI examples.
 
 ## [0.2.0] - 2026-05-08
 

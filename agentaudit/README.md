@@ -75,7 +75,9 @@ envelope (single assistant turn at the top level), or JSONL with one
 message per line. See
 [`examples/anthropic-messages-good.json`](./examples/anthropic-messages-good.json)
 for a worked example covering text / thinking / tool_use / tool_result
-blocks.
+blocks. The CLI auto-detects this worked example shape by filename, so
+`agentaudit check examples/anthropic-messages-good.json ...` works
+without an explicit `--adapter` flag.
 
 The OpenAI adapter accepts either a bare list of items, JSONL, a full
 Responses-style envelope with an `output` array such as

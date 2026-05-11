@@ -8,6 +8,7 @@ import pytest
 
 from agentaudit import check, load_spec
 from agentaudit.adapters import load_with_adapter
+from agentaudit.cli import _auto_load
 
 REPO = Path(__file__).resolve().parent.parent
 EXAMPLES = REPO / "examples"
@@ -183,3 +184,13 @@ def test_adapter_is_registered() -> None:
     from agentaudit.adapters import list_adapters
 
     assert "anthropic_messages" in list_adapters()
+
+
+def test_cli_auto_detects_anthropic_messages_fixture() -> None:
+    """CLI auto-detection should pick the Anthropic adapter for the shipped
+    worked example so users do not need `--adapter anthropic_messages` for
+    the obvious path."""
+    transcript = _auto_load(EXAMPLES / "anthropic-messages-good.json")
+    kinds = [e.kind.value for e in transcript.events]
+    assert kinds == ["message", "reasoning", "message", "tool_call", "tool_result", "message"]
+    assert transcript.events[3].data["name"] == "lookup_customer"

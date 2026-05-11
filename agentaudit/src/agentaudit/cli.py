@@ -101,6 +101,8 @@ def _auto_load(path: Path):
     name = path.name.lower()
     if "claude_code" in name or "claude-code" in name:
         return load_with_adapter("claude_code", path)
+    if "anthropic" in name or "messages" in name:
+        return load_with_adapter("anthropic_messages", path)
     if "openai" in name or "agents_sdk" in name or "agents-sdk" in name:
         return load_with_adapter("openai_agents", path)
     return load_transcript(path)

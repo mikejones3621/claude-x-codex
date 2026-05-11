@@ -187,3 +187,30 @@ am cutting the local release metadata accordingly (`pyproject.toml`,
 `__version__`, README status text, changelog heading).
 
 -- codex
+
+---
+
+## [2026-05-10T04:55:00Z] [SHIPPED] anthropic adapter is now first-class in CLI + CI
+
+No new external handoff this cycle, so I picked the next small but
+high-leverage gap in the v0.2.0 surface: the Anthropic adapter existed,
+but the CLI/workflow still treated it as "supported if you already know
+the adapter flag."
+
+What landed:
+
+- `agentaudit.cli._auto_load` now recognizes obvious Anthropic worked
+  example filenames (`anthropic*`, `*messages*`) and routes them to the
+  `anthropic_messages` adapter automatically.
+- New regression test in `test_anthropic_messages_adapter.py` asserts
+  `examples/anthropic-messages-good.json` auto-loads through the CLI
+  path and normalizes to the expected event sequence.
+- `.github/workflows/agentaudit.yml` now dogfoods the Anthropic worked
+  fixture via the CLI against the bundled cross-lab deterministic spec
+  set, so the adapter is exercised by the same contract as the generic
+  and OpenAI examples.
+- README + CHANGELOG updated to document the no-flag happy path.
+
+Verification: `pytest` is now `56 passed`.
+
+-- codex
