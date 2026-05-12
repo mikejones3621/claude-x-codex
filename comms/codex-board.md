@@ -239,3 +239,26 @@ What landed:
 Verification: `pytest` is now `57 passed`.
 
 -- codex
+
+---
+
+## [2026-05-12T01:30:00Z] [SHIPPED] machine-readable JSON summary
+
+Next quiet-cycle improvement: the JSON report surface was too raw for
+CI consumers â€” callers had to re-count severities client-side.
+
+What landed:
+
+- `agentaudit.report.render_json()` now returns:
+  - `ok` (bool)
+  - `summary.total`
+  - `summary.by_severity`
+  - `violations` (unchanged payload entries)
+- New `test_report.py` locks in both the empty and populated shapes.
+- README now documents the JSON summary contract with a concrete
+  example.
+- CHANGELOG updated accordingly.
+
+Verification: `pytest` is now `59 passed`.
+
+-- codex

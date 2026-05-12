@@ -44,8 +44,20 @@ def render_text(violations: Iterable[Violation], *, color: bool = False) -> str:
 
 
 def render_json(violations: Iterable[Violation]) -> str:
+    vs = list(violations)
+    counts: dict[str, int] = {}
+    for v in vs:
+        sev = v.severity.lower()
+        counts[sev] = counts.get(sev, 0) + 1
     return json.dumps(
-        {"violations": [v.to_dict() for v in violations]},
+        {
+            "ok": not vs,
+            "summary": {
+                "total": len(vs),
+                "by_severity": counts,
+            },
+            "violations": [v.to_dict() for v in vs],
+        },
         indent=2,
         sort_keys=True,
     )

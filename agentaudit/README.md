@@ -245,6 +245,24 @@ have a `pattern` or allowlist field you can edit in place.
 Use `--fail-on high` to gate the build only on high-severity findings,
 or `--fail-on any` (default) to fail on anything.
 
+JSON output includes a machine-readable top-level summary:
+
+```json
+{
+  "ok": false,
+  "summary": {
+    "total": 2,
+    "by_severity": {
+      "critical": 1,
+      "high": 1
+    }
+  },
+  "violations": [
+    { "...": "..." }
+  ]
+}
+```
+
 ## Testing
 
 ```bash

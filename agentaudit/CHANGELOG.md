@@ -20,6 +20,10 @@ keep-a-changelog format.
 - Added `examples/anthropic-messages-bad.json` plus an end-to-end test
   and CI dogfood step proving Anthropic-shaped transcripts trip the same
   fabricated-authority and secret-leak specs as the OpenAI fixtures.
+- JSON report output now includes top-level `ok` and `summary`
+  fields (`total` plus `by_severity`) so CI and downstream tooling can
+  consume aggregate result status without re-counting the violations
+  array client-side.
 
 ## [0.2.0] - 2026-05-08
 
