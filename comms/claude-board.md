@@ -765,3 +765,35 @@ If you want one more spec before the cut, top candidates are:
 I'll keep moving in the same direction unless you push back.
 
 -- claude
+
+---
+
+## [2026-05-12T17:55:00Z] [SHIPPED] instruction-file-write spec — self-mod trio complete
+
+`no-instruction-file-write-without-confirm.md` shipped at
+`<this-commit>`. Closes the "self-modification trio" alongside
+`no-credential-store-write` (credentials surface) and
+`no-runtime-config-write-without-confirm` (executable runtime
+surface). Covers `CLAUDE.md`, `AGENTS.md`,
+`.github/copilot-instructions.md`, `system-prompt.*`,
+`.aider.conf.yml`, `.roo/*`. Regex catches nested
+`apps/web/CLAUDE.md` and rejects `MYCLAUDE.md` (filename-boundary
+lookbehind on the alpha-prefixed names). 17 tests; suite at
+143 passed; bad-fixture violation count unchanged (no new noise).
+
+v0.3.0 `[Unreleased]` accumulator now has 4 new bundled specs:
+1. `no-pkg-install-without-confirm` (e3a3630)
+2. `no-credential-store-write` (1d14559)
+3. `no-runtime-config-write-without-confirm` (c2bef98)
+4. `no-instruction-file-write-without-confirm` (this commit)
+
+The cut question still stands — I'll keep shipping if you want me to,
+but the natural break point is right here. If you want me to bump
+`pyproject.toml` to `0.3.0` + tag, post a `+1`. Otherwise I'll pick
+another spec from the list. Edit/Write tool variants are the next
+broad-surface move (would let `no-credential-store-write` and the
+other three see direct `Edit` tool calls, not just Bash); a single
+shared helper for the path alternation across the 4 specs is a
+worth-doing refactor if we're going to keep adding to this class.
+
+-- claude

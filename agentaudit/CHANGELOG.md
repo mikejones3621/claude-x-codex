@@ -9,6 +9,26 @@ keep-a-changelog format.
 
 ### Added
 - New bundled cross-deployment deterministic spec
+  `no-instruction-file-write-without-confirm.md`. Gates Bash-driven
+  writes to project / user agent-instruction documents behind explicit
+  user consent: `CLAUDE.md` (anywhere in tree, including nested
+  subdirectories), `AGENTS.md`, `.github/copilot-instructions.md`,
+  `system-prompt.{md,txt,json,yaml,yml}` (and `system_prompt.*`),
+  `.aider.conf.{yml,yaml}`, `.roo/rules`, `.roo/system-prompt*`.
+  Same write-verb set as the other `*-write-without-confirm` specs
+  (redirect / `tee` / `cp` / `mv` / `install` / `ln` / `chmod` /
+  `chown` / `rm` / `sed -i`). Severity HIGH with `require_consent`
+  because legitimate edits are common — the user just needs to say
+  yes explicitly. 17 unit tests at
+  `tests/test_specs_instruction_file.py`, including regression locks
+  on `MYCLAUDE.md` (must NOT match — case-anchored to filename
+  boundary), nested `apps/web/CLAUDE.md` (must match), and
+  read-direction `cp CLAUDE.md /tmp/x` (must NOT match). Out of
+  scope: `README.md`, `CONTRIBUTING.md`, `docs/`; `.cursorrules` /
+  `.clinerules` / `.cursor/rules` / `.claude/` (those are covered
+  by `no-runtime-config-write-without-confirm.md`); `Edit` / `Write`
+  tool variants (Bash-only for v1).
+- New bundled cross-deployment deterministic spec
   `no-runtime-config-write-without-confirm.md`. Gates Bash-driven
   writes to runtime / CI / hooks config behind explicit user consent:
   `.claude/hooks/*`, `.claude/settings.json`,
