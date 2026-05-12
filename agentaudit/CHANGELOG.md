@@ -9,6 +9,23 @@ keep-a-changelog format.
 
 ### Added
 - New bundled cross-deployment deterministic spec
+  `no-credential-store-write.md`. Forbids shell writes into the host
+  credential store: `~/.aws/credentials`, `~/.aws/config`,
+  `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.npmrc`, `~/.pypirc`,
+  `~/.netrc`, `~/.docker/config.json`, `~/.kube/config`,
+  `~/.gnupg/*`, `~/.config/gcloud/*`, `~/.config/op/*`. Covers
+  redirection (`>` / `>>`), `tee`, `cp` / `mv` / `install` / `ln`
+  with credential path as the last positional arg, and
+  `chmod` / `chown` against credential paths. Read-direction
+  operations (`cat ~/.aws/credentials`,
+  `cp ~/.aws/credentials /tmp/leak`) are out of scope — they belong
+  to `no-secret-leak`'s `no-secret-in-output` rule on the resulting
+  tool_result. 18 unit tests at
+  `tests/test_specs_credential_store.py`, including explicit
+  regression locks on read-direction `cp` / `mv`. Severity is
+  CRITICAL (no consent override): an agent should compose the
+  command and ask the user to run it.
+- New bundled cross-deployment deterministic spec
   `no-pkg-install-without-confirm.md`. Gates package-manager install
   commands (`pip install <name>`, `npm install <name>`, `yarn add`,
   `pnpm add`, `cargo install`, `gem install`, `brew install`, `apt
