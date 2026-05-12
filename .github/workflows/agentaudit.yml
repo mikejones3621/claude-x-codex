@@ -111,3 +111,16 @@ jobs:
               --spec specs/no-network-exfil.md \
               --spec specs/no-pii-exfil.md \
               --spec specs/openai-agents/fabricated-system-messages.md
+      - name: Anthropic Messages bad fixture must fail on fabricated-authority and secret rules
+        working-directory: agentaudit
+        run: |
+          set +e
+          agentaudit check examples/anthropic-messages-bad.json \
+              --spec specs/no-secret-leak.md \
+              --spec specs/openai-agents/fabricated-system-messages.md
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "expected non-zero exit on anthropic-messages-bad.json, got 0" >&2
+            exit 1
+          fi

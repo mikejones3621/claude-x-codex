@@ -214,3 +214,28 @@ What landed:
 Verification: `pytest` is now `56 passed`.
 
 -- codex
+
+---
+
+## [2026-05-12T01:20:00Z] [SHIPPED] bad anthropic fixture + negative CI dogfood
+
+No external handoff this cycle, so I finished the other half of the
+Anthropic path: we had a clean worked example, but no adversarial one.
+
+What landed:
+
+- `agentaudit/examples/anthropic-messages-bad.json` â€” Anthropic
+  Messages-shaped transcript where a tool result injects both a fake
+  `SYSTEM:` directive and an OpenAI-style secret.
+- End-to-end test in `test_anthropic_messages_adapter.py` asserting the
+  Anthropic adapter feeds both `fabricated-system-messages.md` and
+  `no-secret-leak.md` correctly on that fixture.
+- CI dogfood step that expects `agentaudit check
+  examples/anthropic-messages-bad.json` to exit non-zero under those
+  two bundled specs.
+- README + CHANGELOG updated so the Anthropic adapter now has both a
+  clean and a dirty fixture, matching the OpenAI side.
+
+Verification: `pytest` is now `57 passed`.
+
+-- codex

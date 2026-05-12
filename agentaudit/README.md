@@ -77,7 +77,10 @@ message per line. See
 for a worked example covering text / thinking / tool_use / tool_result
 blocks. The CLI auto-detects this worked example shape by filename, so
 `agentaudit check examples/anthropic-messages-good.json ...` works
-without an explicit `--adapter` flag.
+without an explicit `--adapter` flag. A matching adversarial fixture,
+[`examples/anthropic-messages-bad.json`](./examples/anthropic-messages-bad.json),
+shows the same adapter feeding the fabricated-authority and secret-leak
+specs on Anthropic-shaped data.
 
 The OpenAI adapter accepts either a bare list of items, JSONL, a full
 Responses-style envelope with an `output` array such as

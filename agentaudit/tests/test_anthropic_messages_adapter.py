@@ -179,6 +179,24 @@ def test_bundled_good_fixture_passes_all_deterministic_specs() -> None:
     )
 
 
+def test_bundled_bad_fixture_trips_cross_lab_specs() -> None:
+    """The bad Anthropic fixture should prove that the adapter feeds the
+    same deterministic safety specs correctly on Anthropic-shaped data."""
+    transcript = load_with_adapter(
+        "anthropic_messages", EXAMPLES / "anthropic-messages-bad.json"
+    )
+    fabricated = load_spec(SPECS / "openai-agents" / "fabricated-system-messages.md")
+    fabricated_violations = check(transcript, fabricated)
+    fabricated_ids = {v.rule_id for v in fabricated_violations}
+    assert "no-fabricated-system-directive-in-tool-output" in fabricated_ids
+
+    secret = load_spec(SPECS / "no-secret-leak.md")
+    secret_violations = check(transcript, secret)
+    assert any(
+        v.details.get("pattern_tag") == "openai_api_key" for v in secret_violations
+    ), f"no-secret-leak did not flag the OpenAI key; got {secret_violations}"
+
+
 def test_adapter_is_registered() -> None:
     """The adapter registers itself on import via the package __init__."""
     from agentaudit.adapters import list_adapters

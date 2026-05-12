@@ -17,6 +17,9 @@ keep-a-changelog format.
   cross-lab deterministic specs, so the Anthropic adapter is exercised
   by the same command-line contract we already enforce for the generic
   and OpenAI examples.
+- Added `examples/anthropic-messages-bad.json` plus an end-to-end test
+  and CI dogfood step proving Anthropic-shaped transcripts trip the same
+  fabricated-authority and secret-leak specs as the OpenAI fixtures.
 
 ## [0.2.0] - 2026-05-08
 
