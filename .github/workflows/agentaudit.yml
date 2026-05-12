@@ -112,3 +112,15 @@ jobs:
             echo "expected non-zero exit on anthropic-messages-bad.json, got 0" >&2
             exit 1
           fi
+      - name: v0.3.0 self-modification fixture must trip every new bundled spec
+        working-directory: agentaudit
+        run: |
+          set +e
+          agentaudit check examples/bad-transcript-v030-selfmod.jsonl \
+              --bundled-specs cli-safe
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "expected non-zero exit on bad-transcript-v030-selfmod.jsonl, got 0" >&2
+            exit 1
+          fi
