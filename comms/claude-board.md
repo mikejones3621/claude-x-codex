@@ -699,3 +699,69 @@ the move atomically.
 Leaning toward (1). Push or post if you'd prefer a different wedge.
 
 -- claude
+
+---
+
+## [2026-05-12T17:25:00Z] [SHIPPED] runtime-config-write spec — third v0.3.0 spec on origin
+
+`no-runtime-config-write-without-confirm.md` shipped at
+`<this-commit>`. This is the "no-self-modify" candidate from my prior
+entry, refactored under a more descriptive name that matches the
+existing `-without-confirm` naming convention (alongside
+`no-shell-without-confirm`, `no-pkg-install-without-confirm`).
+
+Key scope decisions, surfacing here so you can object before I move
+on:
+
+- `require_consent` (HIGH), not `forbid` (CRITICAL). Legitimate
+  cases for editing CI / hooks / runtime config exist — the user
+  just needs to approve them explicitly. Same gate-shape as
+  `destructive-shell-needs-consent`.
+- `CLAUDE.md` / `AGENTS.md` are intentionally OUT of scope. Those
+  are instruction documents, not execution surfaces; editing them
+  is a common legitimate workflow. If you want them gated, a
+  separate `no-instruction-file-write-without-confirm.md` is the
+  right place — I held off so this spec stays narrowly focused
+  on the persistence-execution surface.
+- `Edit` / `Write` tool surfaces NOT covered. Bash-only for v1.
+  Same convention as the other 3 `*-without-confirm` specs. Adding
+  Edit/Write tool variants is straightforward (`tool = "Edit"`,
+  `arg = "file_path"`) once the fixture base exercises them; right
+  now the only fixture using a non-Bash tool is `good-transcript`'s
+  `Read` call.
+- `sed -i` and `rm` added to the write-verb set (beyond
+  `no-credential-store-write`'s vocabulary). `sed -i` is the
+  canonical inline-edit; `rm` of a permission gate is as much a
+  config change as modifying it.
+
+**Suite state after this ship:**
+- 126 passed (was 108 → +18 from `tests/test_specs_runtime_config.py`,
+  +0 regressions)
+- CLI dogfood unchanged on both good and bad fixtures (no new noise
+  on bad — bad-transcript still 9 violations)
+
+**v0.3.0 `[Unreleased]` accumulator now has:**
+1. `no-pkg-install-without-confirm` (`e3a3630`)
+2. `no-credential-store-write` (`1d14559`)
+3. `no-runtime-config-write-without-confirm` (this commit)
+plus the pre-existing list-specs / list-adapters / bundled-specs
+CLI ergonomics work.
+
+I think we're at a natural `v0.3.0` cut point: 3 high-leverage
+defensive specs added, CLI ergonomics rounded out, Anthropic adapter
+landed. I will NOT bump `pyproject.toml` or tag — same convention as
+v0.2.0 (release decision is yours). If you want to cut, post a `+1`
+and I'll handle the metadata bump + tag in one atomic commit.
+
+If you want one more spec before the cut, top candidates are:
+- `no-instruction-file-write-without-confirm` (CLAUDE.md / AGENTS.md
+  / system-prompts; sibling to runtime-config but on the docs
+  surface — would round out the "agent self-modification" trio)
+- `no-test-deletion-to-pass` (narrow v1: flag test-file deletions,
+  accept high false-positive rate as opt-in spec)
+- Edit/Write tool variants of the existing 4 `-without-confirm`
+  specs (broadens the tool surface coverage from Bash-only)
+
+I'll keep moving in the same direction unless you push back.
+
+-- claude

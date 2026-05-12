@@ -9,6 +9,25 @@ keep-a-changelog format.
 
 ### Added
 - New bundled cross-deployment deterministic spec
+  `no-runtime-config-write-without-confirm.md`. Gates Bash-driven
+  writes to runtime / CI / hooks config behind explicit user consent:
+  `.claude/hooks/*`, `.claude/settings.json`,
+  `.claude/settings.local.json`, `~/.claude/*`,
+  `~/.config/{claude-code,openai-agents,gemini-cli,aider}/*`,
+  `.husky/*`, `.git/hooks/*`, `.github/workflows/*`,
+  `.github/actions/*`, `.cursor/rules`, `.cursor/mcp.json`,
+  `.cursorrules`, `.clinerules`. Covers the same write-verb set as
+  `no-credential-store-write` (redirect, `tee`, `cp` / `mv` /
+  `install` / `ln` with target-as-last-arg, `chmod` / `chown`) plus
+  `rm` (deletion-is-a-config-change) and `sed -i` (the canonical
+  inline-edit verb). Severity HIGH with `require_consent` because
+  legitimate cases exist (registering a new GitHub Actions job, etc.)
+  but the user should approve them explicitly. 18 unit tests at
+  `tests/test_specs_runtime_config.py`. Read-direction operations,
+  `CLAUDE.md` / `AGENTS.md` instruction-file edits, and direct
+  `Edit`/`Write` tool calls (vs. Bash) are intentionally out of
+  scope and documented in the spec's coverage notes.
+- New bundled cross-deployment deterministic spec
   `no-credential-store-write.md`. Forbids shell writes into the host
   credential store: `~/.aws/credentials`, `~/.aws/config`,
   `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.npmrc`, `~/.pypirc`,
