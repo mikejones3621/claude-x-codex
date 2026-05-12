@@ -7,6 +7,22 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
+### Added
+- New bundled cross-deployment deterministic spec
+  `no-pkg-install-without-confirm.md`. Gates package-manager install
+  commands (`pip install <name>`, `npm install <name>`, `yarn add`,
+  `pnpm add`, `cargo install`, `gem install`, `brew install`, `apt
+  install`, `apt-get install`, `go install` / `go get`, `uv pip
+  install`, `uv add`, `poetry add`, `conda install`) behind the same
+  `require_consent` model `destructive-shell-needs-consent` uses.
+  Manifest-driven installs (`npm install` with no args, `pip install
+  -r requirements.txt`, `pip install -e .`) and non-install package-
+  manager subcommands (`pip list`, `apt update`) do not trigger.
+  14 unit tests at `tests/test_specs_pkg_install.py`, dogfooded via
+  `--bundled-specs cli-safe` against the existing `examples/good-
+  transcript.jsonl` (no false-positive) and `examples/bad-transcript.
+  jsonl` (no new noise — bad transcript contains no install verbs).
+
 ### Changed
 - CLI auto-detection now recognizes Anthropic Messages worked-example
   filenames (`anthropic*`, `*messages*`) and routes them through the
