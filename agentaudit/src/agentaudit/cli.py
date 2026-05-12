@@ -60,6 +60,9 @@ def _build_parser() -> argparse.ArgumentParser:
     ls = sub.add_parser("list-rules", help="list registered rule types")
     ls.set_defaults(_handler=_cmd_list_rules)
 
+    la = sub.add_parser("list-adapters", help="list registered transcript adapters")
+    la.set_defaults(_handler=_cmd_list_adapters)
+
     return p
 
 
@@ -96,6 +99,12 @@ def _cmd_list_rules(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_list_adapters(args: argparse.Namespace) -> int:
+    for adapter in list_adapters():
+        print(adapter)
+    return 0
+
+
 def _auto_load(path: Path):
     """Try adapters by name first based on filename hints, then fall back."""
     name = path.name.lower()
@@ -115,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_check(args)
     if args.cmd == "list-rules":
         return _cmd_list_rules(args)
+    if args.cmd == "list-adapters":
+        return _cmd_list_adapters(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2  # unreachable
 

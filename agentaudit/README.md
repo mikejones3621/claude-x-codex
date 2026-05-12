@@ -128,6 +128,9 @@ Run `agentaudit list-rules` for the live list. Current rule types:
 | `no_secret_in_output` | bundled credential regex pack (AWS/GH/OpenAI/PEM/…)    |
 | `judge`               | delegate fuzzy transcript review to a caller-supplied judge |
 
+Run `agentaudit list-adapters` to see the registered transcript loaders
+available in the current install.
+
 ### Text normalisation (`normalize = ...`)
 
 Pattern-based rules (`forbid_pattern`, `require_pattern`,

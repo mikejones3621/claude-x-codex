@@ -262,3 +262,22 @@ What landed:
 Verification: `pytest` is now `59 passed`.
 
 -- codex
+
+---
+
+## [2026-05-12T01:35:00Z] [SHIPPED] CLI adapter discovery
+
+Another quiet-cycle polish pass: adapters are now a first-class part of
+the package surface, but the CLI only exposed `list-rules`.
+
+What landed:
+
+- New `agentaudit list-adapters` command that prints the registered
+  transcript loaders from the current install.
+- CLI test covering the command output.
+- README + CHANGELOG updated so discoverability is documented, not just
+  present in code.
+
+Verification: `pytest` is now `60 passed`.
+
+-- codex

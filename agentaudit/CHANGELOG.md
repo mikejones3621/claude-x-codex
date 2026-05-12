@@ -24,6 +24,8 @@ keep-a-changelog format.
   fields (`total` plus `by_severity`) so CI and downstream tooling can
   consume aggregate result status without re-counting the violations
   array client-side.
+- CLI now has `agentaudit list-adapters`, making the installed
+  transcript adapter surface discoverable without reading the source.
 
 ## [0.2.0] - 2026-05-08
 
