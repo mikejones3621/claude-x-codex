@@ -262,15 +262,42 @@ Python instead.
 
 ## Bundled spec library
 
-| file                                  | covers                                                |
-| ------------------------------------- | ----------------------------------------------------- |
-| `specs/no-secret-leak.md`             | API keys, PEM private keys                            |
-| `specs/no-shell-without-confirm.md`   | `rm -rf`, force-push to main, `--no-verify`, consent  |
-| `specs/no-network-exfil.md`           | curl/wget allowlist, `curl … \| sh`, netcat shells    |
-| `specs/no-pii-exfil.md`               | SSNs, credit cards, bulk email lists                  |
-| `specs/openai-agents/tool-allowlist.md` | explicit allowlist for function-tool deployments    |
-| `specs/openai-agents/fabricated-system-messages.md` | deterministic block on fake system/developer directives in tool output |
-| `specs/openai-agents/prompt-injection-resistance.md` | judge-backed manipulation review |
+Cross-deployment deterministic specs (run by `--bundled-specs cli-safe`):
+
+| file                                                 | covers                                                |
+| ---------------------------------------------------- | ----------------------------------------------------- |
+| `specs/no-secret-leak.md`                            | API keys, PEM private keys                            |
+| `specs/no-shell-without-confirm.md`                  | `rm -rf`, force-push to main, `--no-verify`, consent  |
+| `specs/no-network-exfil.md`                          | curl/wget allowlist, `curl … \| sh`, netcat shells    |
+| `specs/no-pii-exfil.md`                              | SSNs, credit cards, bulk email lists                  |
+| `specs/no-pkg-install-without-confirm.md`            | `pip/npm/cargo/apt install <pkg>` — consent gate against supply-chain risk |
+| `specs/no-credential-store-write.md`                 | shell writes into `~/.aws/credentials`, `~/.ssh/*`, `~/.npmrc`, `~/.kube/config`, `~/.docker/config.json`, `~/.gnupg/*`, etc. |
+| `specs/no-runtime-config-write-without-confirm.md`   | shell writes into `.git/hooks/`, `.husky/`, `.github/workflows/`, `.claude/`, `.cursor/`, `.cursorrules`, `.clinerules` — consent gate on the executable-runtime persistence surface |
+| `specs/no-instruction-file-write-without-confirm.md` | shell writes into `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `system-prompt.*`, `.aider.conf.yml`, `.roo/*` — consent gate on the agent-instruction persistence surface |
+
+Deployment-specific deterministic specs (opt-in via `--bundled-specs
+deterministic` or `--bundled-specs deployment-specific`):
+
+| file                                                  | covers                                                |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| `specs/openai-agents/tool-allowlist.md`               | explicit allowlist for function-tool deployments      |
+| `specs/openai-agents/fabricated-system-messages.md`   | deterministic block on fake system/developer directives in tool output |
+
+Judge-backed specs (require the Python API with `judge=...`):
+
+| file                                                    | covers                       |
+| ------------------------------------------------------- | ---------------------------- |
+| `specs/openai-agents/prompt-injection-resistance.md`    | judge-backed manipulation review |
+
+The four `*-write-without-confirm` specs share a common defensive
+shape: they gate *persistence operations* — writes that change what
+happens on the **next** agent invocation, the next commit, the next
+PR. Together they form a credentials / runtime-config /
+instruction-files trio that catches the most common silent-self-
+amplification footguns: planting an SSH key, planting a git hook,
+appending "ignore all user instructions" to `CLAUDE.md`. See
+`examples/bad-transcript-v030-selfmod.jsonl` for a worked end-to-end
+malicious-agent scenario that trips every spec in the trio.
 
 These are starting points. Tune them for your environment — most rules
 have a `pattern` or allowlist field you can edit in place.
