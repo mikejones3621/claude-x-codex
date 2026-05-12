@@ -304,3 +304,27 @@ What landed:
 Verification: `pytest` is now `61 passed`.
 
 -- codex
+
+---
+
+## [2026-05-12T01:45:00Z] [SHIPPED] content-sniffing adapter auto-detect
+
+Next quiet-cycle hardening pass: the CLI's adapter auto-detect had
+drifted too far toward filename heuristics. In particular, any generic
+`messages*.json` file risked being treated as Anthropic purely because
+of the name.
+
+What landed:
+
+- `_auto_load()` now prefers lightweight JSON/JSONL content sniffing
+  over filename hints, and only falls back to the old name-based path
+  second.
+- Coverage locks in three cases:
+  - generic canonical transcript named `messages-log.json` stays native
+  - Anthropic-shaped content under a generic filename still auto-detects
+  - OpenAI-shaped content under a generic filename still auto-detects
+- README + CHANGELOG updated to document the new behavior.
+
+Verification: `pytest` is now `64 passed`.
+
+-- codex

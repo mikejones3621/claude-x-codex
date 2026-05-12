@@ -91,6 +91,11 @@ payload under `raw_item` (see
 for a worked example covering `message_output_item`, `tool_call_item`,
 `tool_call_output_item`, and `reasoning_item`).
 
+When no `--adapter` is supplied, the CLI now sniffs the file content
+first and only falls back to filename hints second. That avoids
+misclassifying generic files like `messages-log.json` just because the
+filename happens to contain the word `messages`.
+
 ## Spec format
 
 A spec is a Markdown file. Each rule is an H2 (`## rule-id: name`)

@@ -30,6 +30,10 @@ keep-a-changelog format.
   targeted error message explaining that `type = judge` rules require
   the Python API (`check(..., judge=...)`), instead of surfacing a raw
   exception path.
+- CLI adapter auto-detection now sniffs JSON/JSONL content before
+  falling back to filename hints, which avoids false positives such as
+  generic `messages-log.json` files being misclassified as Anthropic
+  transcripts just because of the filename.
 
 ## [0.2.0] - 2026-05-08
 

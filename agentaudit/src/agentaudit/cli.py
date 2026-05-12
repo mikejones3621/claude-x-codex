@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -117,15 +118,90 @@ def _cmd_list_adapters(args: argparse.Namespace) -> int:
 
 
 def _auto_load(path: Path):
-    """Try adapters by name first based on filename hints, then fall back."""
+    """Prefer content sniffing, then filename hints, then native schema."""
+    detected = _detect_adapter(path)
+    if detected:
+        return load_with_adapter(detected, path)
+
     name = path.name.lower()
     if "claude_code" in name or "claude-code" in name:
         return load_with_adapter("claude_code", path)
-    if "anthropic" in name or "messages" in name:
+    if "anthropic" in name:
         return load_with_adapter("anthropic_messages", path)
     if "openai" in name or "agents_sdk" in name or "agents-sdk" in name:
         return load_with_adapter("openai_agents", path)
     return load_transcript(path)
+
+
+def _detect_adapter(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    stripped = text.strip()
+    if not stripped:
+        return None
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError:
+        return _detect_jsonl_adapter(text)
+    return _detect_json_adapter(raw)
+
+
+def _detect_jsonl_adapter(text: str) -> str | None:
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            raw = json.loads(line)
+        except json.JSONDecodeError:
+            return None
+        return _detect_json_adapter(raw)
+    return None
+
+
+def _detect_json_adapter(raw: object) -> str | None:
+    if isinstance(raw, dict):
+        if isinstance(raw.get("messages"), list):
+            return "anthropic_messages"
+        if isinstance(raw.get("output"), list) or isinstance(raw.get("items"), list):
+            return "openai_agents"
+        if "role" in raw and "content" in raw:
+            return "anthropic_messages"
+        if "type" in raw and raw.get("type") in {
+            "message",
+            "function_call",
+            "function_call_output",
+            "reasoning",
+            "message_output_item",
+            "tool_call_item",
+            "tool_call_output_item",
+            "reasoning_item",
+        }:
+            return "openai_agents"
+        return None
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            if "kind" in item:
+                return None
+            if "role" in item and "content" in item:
+                return "anthropic_messages"
+            if item.get("type") in {
+                "message",
+                "function_call",
+                "function_call_output",
+                "reasoning",
+                "message_output_item",
+                "tool_call_item",
+                "tool_call_output_item",
+                "reasoning_item",
+            }:
+                return "openai_agents"
+        return None
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
