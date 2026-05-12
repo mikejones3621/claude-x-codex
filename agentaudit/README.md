@@ -25,11 +25,40 @@ pip install -e .
 
 # audit the bundled examples
 agentaudit check examples/bad-transcript.jsonl \
-    --spec specs/no-secret-leak.md \
-    --spec specs/no-shell-without-confirm.md \
-    --spec specs/no-network-exfil.md \
-    --spec specs/no-pii-exfil.md
+    --spec no-secret-leak.md \
+    --spec no-shell-without-confirm.md \
+    --spec no-network-exfil.md \
+    --spec no-pii-exfil.md
+
+# or run the whole bundled deterministic set in one shot
+agentaudit check examples/openai-agents-wrapped-good.json \
+    --adapter openai_agents \
+    --bundled-specs cli-safe
 ```
+
+Run `agentaudit list-specs` to see the bundled spec paths available in
+the current checkout. When those bundled specs are present, `--spec`
+accepts either the full filesystem path or the relative path printed by
+`list-specs` (for example `openai-agents/tool-allowlist.md`).
+Use `agentaudit list-specs --cli-safe` to show only deterministic specs
+that are cross-deployment safe to run directly in the CLI, or
+`agentaudit list-specs --deployment-specific` to show bundled specs that
+encode deployment-specific deterministic policy, or
+`agentaudit list-specs --verbose` to label each bundled spec as
+`deterministic`, `deterministic+deployment-specific`, or
+`judge-backed`.
+`agentaudit check --bundled-specs cli-safe` runs that cross-deployment
+deterministic set directly; `--bundled-specs deterministic` adds the
+deployment-specific deterministic bundles;
+`--bundled-specs deployment-specific` runs just that deployment-specific
+deterministic subset; `--bundled-specs all` also includes judge-backed
+specs, so the latter still exits with the same Python-API guidance
+described below when judge-backed rules are present.
+Deployment-specific bundled specs such as
+`openai-agents/tool-allowlist.md` can still be selected explicitly via
+`--spec`.
+If you combine `--bundled-specs` with explicit `--spec` flags, duplicate
+bundled entries are de-duplicated automatically before execution.
 
 You'll see a report like:
 
@@ -135,6 +164,9 @@ Run `agentaudit list-rules` for the live list. Current rule types:
 
 Run `agentaudit list-adapters` to see the registered transcript loaders
 available in the current install.
+
+Run `agentaudit list-specs` to see the bundled behavior-spec library
+available alongside the CLI.
 
 ### Text normalisation (`normalize = ...`)
 
@@ -250,8 +282,7 @@ have a `pattern` or allowlist field you can edit in place.
 - run: pip install agentaudit
 - run: |
     agentaudit check artifacts/agent-session.jsonl \
-        --spec specs/no-secret-leak.md \
-        --spec specs/no-shell-without-confirm.md \
+        --bundled-specs cli-safe \
         --format json > agent-audit.json
 ```
 

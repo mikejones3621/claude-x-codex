@@ -46,10 +46,7 @@ jobs:
         working-directory: agentaudit
         run: |
           agentaudit check examples/good-transcript.jsonl \
-              --spec specs/no-secret-leak.md \
-              --spec specs/no-shell-without-confirm.md \
-              --spec specs/no-network-exfil.md \
-              --spec specs/no-pii-exfil.md
+              --bundled-specs cli-safe
       - name: Bad transcript must fail with non-zero exit
         working-directory: agentaudit
         run: |
@@ -70,19 +67,14 @@ jobs:
         run: |
           agentaudit check examples/openai-agents-wrapped-good.json \
               --adapter openai_agents \
-              --spec specs/no-secret-leak.md \
-              --spec specs/no-shell-without-confirm.md \
-              --spec specs/no-network-exfil.md \
-              --spec specs/no-pii-exfil.md \
-              --spec specs/openai-agents/tool-allowlist.md
+              --bundled-specs deterministic
       - name: OpenAI Agents bad envelope must trip the tool allowlist
         working-directory: agentaudit
         run: |
           set +e
           agentaudit check examples/openai-agents-bad.json \
               --adapter openai_agents \
-              --spec specs/openai-agents/tool-allowlist.md \
-              --spec specs/no-secret-leak.md
+              --bundled-specs deployment-specific
           rc=$?
           set -e
           if [ "$rc" -eq 0 ]; then
@@ -106,11 +98,7 @@ jobs:
         working-directory: agentaudit
         run: |
           agentaudit check examples/anthropic-messages-good.json \
-              --spec specs/no-secret-leak.md \
-              --spec specs/no-shell-without-confirm.md \
-              --spec specs/no-network-exfil.md \
-              --spec specs/no-pii-exfil.md \
-              --spec specs/openai-agents/fabricated-system-messages.md
+              --bundled-specs cli-safe
       - name: Anthropic Messages bad fixture must fail on fabricated-authority and secret rules
         working-directory: agentaudit
         run: |

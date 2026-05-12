@@ -34,6 +34,43 @@ keep-a-changelog format.
   falling back to filename hints, which avoids false positives such as
   generic `messages-log.json` files being misclassified as Anthropic
   transcripts just because of the filename.
+- CLI now has `agentaudit list-specs`, making the bundled spec library
+  discoverable from the command line alongside `list-rules` and
+  `list-adapters`.
+- `agentaudit list-specs --cli-safe` now filters that bundled library
+  down to specs that run directly in the CLI, and
+  `agentaudit list-specs --verbose` labels each bundled spec as
+  deterministic or judge-backed.
+- `agentaudit check --bundled-specs cli-safe` now runs the bundled
+  deterministic spec set directly from the CLI, while
+  `--bundled-specs all` includes judge-backed specs and therefore
+  preserves the existing Python-API boundary for those rules.
+- `agentaudit check` now de-duplicates overlapping explicit `--spec`
+  entries against `--bundled-specs`, so combining the shortcuts does not
+  double-run the same bundled rule file.
+- GitHub Actions dogfood now exercises `agentaudit check --bundled-specs
+  cli-safe` directly on the clean generic, OpenAI Agents, and Anthropic
+  worked fixtures instead of spelling out those deterministic spec lists
+  by hand.
+- `agentaudit list-specs --verbose` now distinguishes
+  deployment-specific deterministic specs (currently the explicit
+  tool-allowlist bundle) from the broader cross-deployment deterministic
+  set, and `--bundled-specs cli-safe` excludes those deployment-specific
+  specs so generic clean transcripts do not fail on unrelated allowlist
+  policy.
+- `agentaudit list-specs --deployment-specific` now exposes just that
+  deployment-specific bundled subset, and
+  `agentaudit check --bundled-specs deterministic` runs the full
+  deterministic library (cross-deployment plus deployment-specific)
+  without also pulling in judge-backed rules.
+- `agentaudit check --bundled-specs deployment-specific` now runs just
+  the deployment-specific deterministic subset, giving CLI users a
+  direct execution counterpart to `list-specs --deployment-specific`.
+- `agentaudit check --spec ...` now resolves bundled-spec relative paths
+  such as `no-secret-leak.md` or
+  `openai-agents/tool-allowlist.md` when the bundled spec library is
+  present locally, so common examples no longer need full
+  `specs/...` filesystem paths.
 
 ## [0.2.0] - 2026-05-08
 

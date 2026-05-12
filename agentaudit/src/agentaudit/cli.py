@@ -31,8 +31,17 @@ def _build_parser() -> argparse.ArgumentParser:
     chk.add_argument(
         "--spec",
         action="append",
-        required=True,
         help="path to a spec markdown file (repeatable)",
+    )
+    chk.add_argument(
+        "--bundled-specs",
+        choices=("all", "cli-safe", "deterministic", "deployment-specific"),
+        help=(
+            "include bundled specs by group: `cli-safe` runs only cross-deployment "
+            "deterministic specs, `deployment-specific` runs only deployment-specific "
+            "deterministic specs, `deterministic` includes both deterministic groups, "
+            "and `all` also includes judge-backed specs"
+        ),
     )
     chk.add_argument(
         "--format",
@@ -64,6 +73,24 @@ def _build_parser() -> argparse.ArgumentParser:
     la = sub.add_parser("list-adapters", help="list registered transcript adapters")
     la.set_defaults(_handler=_cmd_list_adapters)
 
+    ls = sub.add_parser("list-specs", help="list bundled spec markdown files")
+    ls.add_argument(
+        "--verbose",
+        action="store_true",
+        help="include bundled spec classification details",
+    )
+    ls.add_argument(
+        "--cli-safe",
+        action="store_true",
+        help="show only bundled specs that are cross-deployment safe to run directly in the CLI",
+    )
+    ls.add_argument(
+        "--deployment-specific",
+        action="store_true",
+        help="show only bundled specs that encode deployment-specific deterministic policy",
+    )
+    ls.set_defaults(_handler=_cmd_list_specs)
+
     return p
 
 
@@ -74,8 +101,14 @@ def _cmd_check(args: argparse.Namespace) -> int:
         else:
             transcript = _auto_load(Path(args.transcript))
         all_violations = []
-        for spec_path in args.spec:
-            spec = load_spec(spec_path)
+        spec_paths = _resolve_requested_specs(args)
+        if not spec_paths:
+            sys.stderr.write(
+                "error: pass at least one `--spec` or choose `--bundled-specs`.\n"
+            )
+            return 2
+        for spec_path in spec_paths:
+            spec = load_spec(_resolve_spec_path(spec_path))
             all_violations.extend(check(transcript, spec))
         all_violations.sort(key=lambda v: (-v.severity_rank, v.event_index, v.rule_id))
     except ValueError as exc:
@@ -115,6 +148,129 @@ def _cmd_list_adapters(args: argparse.Namespace) -> int:
     for adapter in list_adapters():
         print(adapter)
     return 0
+
+
+def _cmd_list_specs(args: argparse.Namespace) -> int:
+    spec_paths = _list_bundled_specs()
+    if not spec_paths:
+        sys.stderr.write("error: bundled specs are not available in this install.\n")
+        return 2
+    for spec_path in spec_paths:
+        classification = _classify_spec(_resolve_spec_path(spec_path))
+        if args.cli_safe and classification != "deterministic":
+            continue
+        if args.deployment_specific and classification != "deterministic+deployment-specific":
+            continue
+        if args.verbose:
+            print(f"{spec_path}\t{classification}")
+        else:
+            print(spec_path)
+    return 0
+
+
+def _resolve_spec_path(spec_path: str | Path) -> str | Path:
+    p = Path(spec_path)
+    if p.exists():
+        return p
+
+    specs_dir = _find_bundled_specs_dir()
+    if specs_dir is None:
+        return spec_path
+
+    candidate = specs_dir / p
+    if candidate.exists():
+        return candidate
+    return spec_path
+
+
+def _resolve_requested_specs(args: argparse.Namespace) -> list[str]:
+    spec_paths = list(args.spec or [])
+    if not args.bundled_specs:
+        return _dedupe_spec_paths(spec_paths)
+    if args.bundled_specs == "all":
+        spec_paths.extend(_list_bundled_specs())
+        return _dedupe_spec_paths(spec_paths)
+    if args.bundled_specs == "deployment-specific":
+        spec_paths.extend(_list_deployment_specific_specs())
+        return _dedupe_spec_paths(spec_paths)
+    if args.bundled_specs == "deterministic":
+        spec_paths.extend(_list_deterministic_specs())
+        return _dedupe_spec_paths(spec_paths)
+    if args.bundled_specs == "cli-safe":
+        spec_paths.extend(_list_cli_safe_specs())
+        return _dedupe_spec_paths(spec_paths)
+    return _dedupe_spec_paths(spec_paths)
+
+
+def _list_bundled_specs() -> list[str]:
+    specs_dir = _find_bundled_specs_dir()
+    if specs_dir is None:
+        return []
+    return sorted(
+        path.relative_to(specs_dir).as_posix() for path in specs_dir.rglob("*.md")
+    )
+
+
+def _list_cli_safe_specs() -> list[str]:
+    return [
+        spec_path
+        for spec_path in _list_bundled_specs()
+        if _classify_spec(_resolve_spec_path(spec_path)) == "deterministic"
+    ]
+
+
+def _list_deterministic_specs() -> list[str]:
+    return [
+        spec_path
+        for spec_path in _list_bundled_specs()
+        if _classify_spec(_resolve_spec_path(spec_path))
+        in {"deterministic", "deterministic+deployment-specific"}
+    ]
+
+
+def _list_deployment_specific_specs() -> list[str]:
+    return [
+        spec_path
+        for spec_path in _list_bundled_specs()
+        if _classify_spec(_resolve_spec_path(spec_path))
+        == "deterministic+deployment-specific"
+    ]
+
+
+def _dedupe_spec_paths(spec_paths: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for spec_path in spec_paths:
+        resolved = _resolve_spec_path(spec_path)
+        key = str(Path(resolved))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(spec_path)
+    return out
+
+
+def _classify_spec(spec_path: str | Path) -> str:
+    spec = load_spec(spec_path)
+    if any(rule.type == "judge" for rule in spec.rules):
+        return "judge-backed"
+    if any(rule.type == "allowlist_tool" for rule in spec.rules):
+        return "deterministic+deployment-specific"
+    return "deterministic"
+
+
+def _find_bundled_specs_dir() -> Path | None:
+    here = Path(__file__).resolve()
+    candidates = (here.parent / "specs", here.parents[2] / "specs")
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if resolved.is_dir():
+            return resolved
+    return None
 
 
 def _auto_load(path: Path):
@@ -213,6 +369,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_list_rules(args)
     if args.cmd == "list-adapters":
         return _cmd_list_adapters(args)
+    if args.cmd == "list-specs":
+        return _cmd_list_specs(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2  # unreachable
 

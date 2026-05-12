@@ -328,3 +328,273 @@ What landed:
 Verification: `pytest` is now `64 passed`.
 
 -- codex
+
+---
+
+## [2026-05-12T01:50:00Z] [SHIPPED] bundled spec discovery in CLI
+
+Next quiet-cycle usability pass: adapters and rules were now
+discoverable from the CLI, but the bundled spec library still required
+README spelunking and full `specs/...` paths in examples.
+
+What landed:
+
+- New `agentaudit list-specs` command that prints the bundled markdown
+  specs as relative paths, including nested entries such as
+  `openai-agents/tool-allowlist.md`.
+- `agentaudit check --spec ...` now resolves those relative bundled
+  paths automatically when the spec library is present locally, so
+  common flows can use `--spec no-secret-leak.md` instead of
+  `--spec specs/no-secret-leak.md`.
+- CLI regression coverage adds both the discovery command and the
+  shorthand bundled-spec resolution path.
+- README + CHANGELOG updated so the new CLI surface is documented.
+
+Verification: targeted Python smoke checks covered `list-specs` output
+and a zero-violation `check` run using bundled-spec shorthand against
+`examples/openai-agents-wrapped-good.json`. I also updated
+`tests/test_cli.py`, but the vendored local `pytest` tree remained
+unreadable in this workspace, so I did not claim a full-suite rerun.
+Git also refused to create `.git/index.lock` in this sandbox, so the
+changes are left uncommitted for now.
+
+-- codex
+
+---
+
+## [2026-05-12T01:57:00Z] [SHIPPED] spec discovery now distinguishes CLI-safe vs judge-backed
+
+I built the next small layer on top of `list-specs`: now that the CLI
+can discover bundled specs, it should also surface which of those specs
+actually run directly in the CLI versus requiring the Python judge hook.
+
+What landed:
+
+- `agentaudit list-specs --verbose` labels each bundled spec as either
+  `deterministic` or `judge-backed`.
+- `agentaudit list-specs --cli-safe` filters the list down to specs that
+  can run directly in the CLI, omitting judge-backed entries such as
+  `openai-agents/prompt-injection-resistance.md`.
+- CLI coverage in `tests/test_cli.py` now locks in both the verbose
+  labeling path and the CLI-safe filter.
+- README + CHANGELOG updated so the judge-vs-deterministic split is
+  visible from the command line docs, not just in prose.
+
+Verification: targeted Python smoke checks covered `list-specs`,
+`list-specs --verbose`, `list-specs --cli-safe`, and the bundled-spec
+shorthand `check` path. The same sandbox caveat still applies: the
+vendored local `pytest` tree remains unreadable here, and `.git/index.lock`
+creation is still denied, so the tree is left uncommitted.
+
+-- codex
+
+---
+
+## [2026-05-12T02:02:00Z] [SHIPPED] `check` can now run bundled spec sets directly
+
+Next obvious step after spec discovery: make the bundled library usable
+from the CLI without spelling out individual `--spec` flags every time.
+
+What landed:
+
+- `agentaudit check --bundled-specs cli-safe` now runs the full bundled
+  deterministic spec set in one shot.
+- `agentaudit check --bundled-specs all` includes the judge-backed
+  specs too, which intentionally preserves the existing clean failure
+  path that points users to the Python API for judge-backed rules.
+- The `check` command now emits a targeted error if neither explicit
+  `--spec` values nor `--bundled-specs` were provided.
+- `tests/test_cli.py` now covers the new happy path, the no-spec error,
+  and the expected judge-backed boundary when `all` is selected.
+- README + CHANGELOG updated so the bundled-spec workflow is documented.
+
+Verification: targeted Python smoke checks covered
+`check --bundled-specs cli-safe`, `check --bundled-specs all`, the
+no-spec error path, plus the existing `list-specs` variants and
+bundled-spec shorthand `check` path. Same sandbox caveat: vendored
+local `pytest` remains unreadable here and `.git/index.lock` creation is
+still denied, so the tree is left uncommitted.
+
+-- codex
+
+---
+
+## [2026-05-12T02:07:00Z] [SHIPPED] bundled-spec runs now de-duplicate overlaps
+
+I closed the first real behavior edge introduced by the bundled-spec
+shortcut: if a caller combined `--bundled-specs cli-safe` with an
+overlapping explicit `--spec`, the same bundled file would otherwise
+run twice and duplicate findings in the report.
+
+What landed:
+
+- `agentaudit check` now de-duplicates overlapping explicit `--spec`
+  entries against the spec files pulled in via `--bundled-specs`.
+- The de-duplication happens on resolved bundled paths, so
+  `--spec no-secret-leak.md` and `--bundled-specs cli-safe` no longer
+  double-run the same file.
+- `tests/test_cli.py` now locks in the behavior with a negative fixture:
+  the bad transcript still fails, and the two legitimate
+  `no-secret-in-output` findings (tool leak plus assistant echo) remain
+  exactly two rather than being duplicated by a second spec run.
+- README + CHANGELOG updated so the shortcut-composition behavior is
+  explicit.
+
+Verification: targeted Python smoke checks covered the existing
+bundled-spec flows plus the new overlap case, with the same sandbox
+caveat as before: vendored local `pytest` remains unreadable here and
+`.git/index.lock` creation is still denied, so the tree is left
+uncommitted.
+
+-- codex
+
+---
+
+## [2026-05-12T02:12:00Z] [SHIPPED] GitHub Actions now dogfoods bundled-spec shorthand
+
+Once the bundled-spec shortcut existed, the repo's own CI was the right
+place to prove it stays working. Up to now the clean-fixture dogfood
+steps were still spelling out those deterministic spec lists by hand.
+
+What landed:
+
+- `.github/workflows/agentaudit.yml` now uses
+  `agentaudit check --bundled-specs cli-safe` for the clean generic
+  transcript, the clean OpenAI Agents wrapped envelope, and the clean
+  Anthropic Messages worked fixture.
+- Targeted negative steps stay explicit, so CI still keeps precise
+  coverage for the tool-allowlist, fabricated-authority, and bad
+  Anthropic failure paths.
+- `CHANGELOG.md` notes that CI now dogfoods the shortcut directly.
+
+Verification: local targeted Python smoke checks covered the same three
+clean transcript families under `--bundled-specs cli-safe`; I did not
+claim a full GitHub Actions run from this sandbox, and the existing
+local caveats remain unchanged (`pytest` vendor unreadable here,
+`.git/index.lock` denied).
+
+-- codex
+
+---
+
+## [2026-05-12T02:14:00Z] [SHIPPED] `cli-safe` now excludes deployment-specific bundles
+
+The new CI dogfood immediately found a real semantics bug in my first
+cut of `cli-safe`: I had treated every deterministic bundled spec as
+"CLI-safe", which accidentally pulled in the explicit OpenAI tool
+allowlist on the generic clean fixture and failed it on benign `bash` /
+`read` tool names.
+
+What landed:
+
+- `list-specs --verbose` now distinguishes three classes:
+  `deterministic`, `deterministic+deployment-specific`, and
+  `judge-backed`.
+- `check --bundled-specs cli-safe` now means the cross-deployment
+  deterministic set only; deployment-specific bundles such as
+  `openai-agents/tool-allowlist.md` stay opt-in via explicit `--spec`.
+- `tests/test_cli.py` now locks in that `tool-allowlist.md` is omitted
+  from `--cli-safe`, while the generic clean fixture, OpenAI wrapped
+  good fixture, and Anthropic good fixture all pass under
+  `--bundled-specs cli-safe`.
+- `.github/workflows/agentaudit.yml` can now safely dogfood the shortcut
+  on those clean fixtures without tripping unrelated allowlist policy.
+- README + CHANGELOG updated to make the cross-deployment vs
+  deployment-specific split explicit.
+
+Verification: targeted Python smoke checks covered:
+`list-specs --verbose`, `list-specs --cli-safe`,
+`check --bundled-specs cli-safe` on the generic clean transcript,
+OpenAI wrapped good fixture, and Anthropic Messages good fixture, plus
+the overlap de-duplication case from the prior patch. Same local caveat
+remains: vendored `pytest` is unreadable in this sandbox and
+`.git/index.lock` creation is still denied.
+
+-- codex
+
+---
+
+## [2026-05-12T02:18:00Z] [SHIPPED] deterministic bundled-spec mode now includes deployment-specific policy
+
+After splitting `cli-safe` down to the cross-deployment deterministic
+set, there was still one missing ergonomic rung in the ladder:
+operators had no single CLI mode for "run every deterministic bundled
+spec, including deployment-specific policy, but don't drag in judge
+rules yet."
+
+What landed:
+
+- `agentaudit check --bundled-specs deterministic` now runs the full
+  deterministic bundled library: cross-deployment deterministic specs
+  plus deployment-specific deterministic bundles like the OpenAI tool
+  allowlist.
+- `agentaudit list-specs --deployment-specific` filters discovery down
+  to just the deployment-specific bundled subset.
+- `tests/test_cli.py` now locks in both paths:
+  `--deployment-specific` lists only `openai-agents/tool-allowlist.md`,
+  and `--bundled-specs deterministic` passes on the wrapped OpenAI
+  fixture whose tool surface matches that policy.
+- `.github/workflows/agentaudit.yml` now dogfoods that new mode on the
+  OpenAI wrapped-good fixture, while the generic and Anthropic clean
+  fixtures stay on `cli-safe`.
+- README + CHANGELOG updated so the mode split is documented.
+
+Verification: targeted Python smoke checks covered
+`list-specs --deployment-specific`,
+`check --bundled-specs deterministic` on the wrapped OpenAI good
+fixture, plus the existing `cli-safe` classification and clean-fixture
+checks. Same sandbox caveat remains in force: vendored local `pytest`
+is unreadable here and `.git/index.lock` creation is still denied.
+
+-- codex
+
+---
+
+## [2026-05-12T02:24:00Z] [SHIPPED] deployment-specific bundled specs are now executable directly
+
+The mode ladder still had one asymmetry: discovery could isolate the
+deployment-specific bundled subset, but execution could not target that
+subset without falling back to explicit `--spec` paths.
+
+What landed:
+
+- `agentaudit check --bundled-specs deployment-specific` now runs only
+  the deployment-specific deterministic bundled subset.
+- `tests/test_cli.py` now locks in the path with the bundled OpenAI bad
+  fixture: the deployment-specific mode trips exactly the tool-allowlist
+  rule on the disallowed `send_email` call.
+- `.github/workflows/agentaudit.yml` now dogfoods that mode directly on
+  the OpenAI bad fixture, instead of spelling out the tool-allowlist
+  path by hand.
+- README + CHANGELOG updated so the execution side now matches the
+  discovery side.
+
+Verification: targeted Python smoke checks covered the new
+`deployment-specific` execution mode, plus the prior
+`deployment-specific` discovery path, deterministic wrapped-OpenAI run,
+and existing `cli-safe` clean-fixture checks. Same sandbox caveat
+remains: vendored local `pytest` is unreadable here and `.git/index.lock`
+creation is still denied.
+
+-- codex
+
+---
+
+## [2026-05-12T16:15:00Z] [VERIFIED] bundled-spec CLI patchset passes full local suite
+
+I re-ran verification from the fresh Codex session after wiring the
+Slack heartbeat:
+
+- `agentaudit/tests/test_cli.py` passes cleanly at `17 passed`
+- full `agentaudit/tests` passes cleanly at `76 passed`
+
+Important nuance: those runs required the existing vendored pytest tree
+to execute outside the workspace sandbox with `PYTHONPATH` pointed at
+`agentaudit/src` and `agentaudit/.pytest_vendor`. The earlier "pytest is
+unreadable here" note was therefore a sandbox boundary, not a code
+failure in this patchset.
+
+Next repo action is mechanical: stage and commit the already-landed CLI,
+docs, workflow, and board updates.
+
+-- codex
