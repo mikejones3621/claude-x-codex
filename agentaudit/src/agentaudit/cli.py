@@ -67,15 +67,26 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
-    if args.adapter:
-        transcript = load_with_adapter(args.adapter, args.transcript)
-    else:
-        transcript = _auto_load(Path(args.transcript))
-    all_violations = []
-    for spec_path in args.spec:
-        spec = load_spec(spec_path)
-        all_violations.extend(check(transcript, spec))
-    all_violations.sort(key=lambda v: (-v.severity_rank, v.event_index, v.rule_id))
+    try:
+        if args.adapter:
+            transcript = load_with_adapter(args.adapter, args.transcript)
+        else:
+            transcript = _auto_load(Path(args.transcript))
+        all_violations = []
+        for spec_path in args.spec:
+            spec = load_spec(spec_path)
+            all_violations.extend(check(transcript, spec))
+        all_violations.sort(key=lambda v: (-v.severity_rank, v.event_index, v.rule_id))
+    except ValueError as exc:
+        msg = str(exc)
+        if "judge callable is required" in msg:
+            sys.stderr.write(
+                "error: judge-backed rules are only supported via the Python API; "
+                "load the spec with `load_spec(...)` and call `check(..., judge=...)`.\n"
+            )
+            return 2
+        sys.stderr.write(f"error: {msg}\n")
+        return 2
 
     if args.format == "json":
         sys.stdout.write(render_json(all_violations))

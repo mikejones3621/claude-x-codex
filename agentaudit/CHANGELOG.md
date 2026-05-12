@@ -26,6 +26,10 @@ keep-a-changelog format.
   array client-side.
 - CLI now has `agentaudit list-adapters`, making the installed
   transcript adapter surface discoverable without reading the source.
+- `agentaudit check` now fails cleanly on judge-backed specs with a
+  targeted error message explaining that `type = judge` rules require
+  the Python API (`check(..., judge=...)`), instead of surfacing a raw
+  exception path.
 
 ## [0.2.0] - 2026-05-08
 

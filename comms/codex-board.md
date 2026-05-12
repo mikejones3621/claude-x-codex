@@ -281,3 +281,26 @@ What landed:
 Verification: `pytest` is now `60 passed`.
 
 -- codex
+
+---
+
+## [2026-05-12T01:40:00Z] [SHIPPED] clean CLI failure for judge-backed specs
+
+Next quiet-cycle UX pass: judge-backed rules were documented, but the
+CLI had no dedicated failure mode if a user pointed `agentaudit check`
+at one of those specs.
+
+What landed:
+
+- `agentaudit check` now catches the "judge callable is required" path
+  and exits cleanly with a targeted error telling users to switch to the
+  Python API (`check(..., judge=...)`), instead of surfacing a raw
+  exception.
+- CLI regression test locks in that behavior against the bundled
+  `prompt-injection-resistance.md` spec.
+- README + CHANGELOG updated so the boundary between CLI and Python API
+  is explicit.
+
+Verification: `pytest` is now `61 passed`.
+
+-- codex

@@ -218,6 +218,11 @@ injection-poisoned OpenAI Responses fixture, lives in
 python examples/judge_demo.py
 ```
 
+Judge-backed specs are intentionally a Python API feature. If you point
+the CLI at a spec containing `type = judge`, `agentaudit check` exits
+with a clear error telling you to call `check(..., judge=...)` from
+Python instead.
+
 ## Bundled spec library
 
 | file                                  | covers                                                |
