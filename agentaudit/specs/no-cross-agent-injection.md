@@ -33,6 +33,7 @@ originator_scope = "message,tool_result"
 propagator_scope = "tool_call,message"
 max_distance = 10
 ignore_case = true
+normalize = "strict"
 ```
 
 What this catches:
