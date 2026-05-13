@@ -23,9 +23,12 @@ evaluates a single tool-call event against your loaded specs and
 returns an allow/block decision on stdout with a matching exit code,
 designed to plug into agent runtime hooks like Claude Code's
 `PreToolUse`. State is persisted between hook invocations via a
-JSONL history file so `require_consent` rules see prior user
-messages. Fail-closed: malformed input blocks; broken pipe blocks;
-silence is never an allow. Ready-to-deploy integration recipes ship
+JSONL history file. In hook deployments that only feed `tool_call`
+events (such as a bare `PreToolUse` hook), that history immediately
+preserves prior tool calls, but consent-gated specs still need an
+additional path that records user messages into history; otherwise
+they fail closed by design. Fail-closed: malformed input blocks;
+broken pipe blocks; silence is never an allow. Ready-to-deploy integration recipes ship
 in [`recipes/`](recipes/):
 - [`recipes/claude-code-pre-tool-use.sh`](recipes/claude-code-pre-tool-use.sh)
   — runnable Bash hook for Claude Code (see

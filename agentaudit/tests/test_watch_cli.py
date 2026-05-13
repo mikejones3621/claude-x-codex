@@ -121,6 +121,53 @@ def test_cli_watch_hook_fail_closed_on_garbage_exit_two() -> None:
     assert "fail-closed" in decision["reason"]
 
 
+def test_cli_watch_hook_history_file_does_not_synthesize_user_consent(
+    tmp_path: Path,
+) -> None:
+    """The documented Claude Code `PreToolUse` recipe only feeds
+    tool-call events through the hook.
+
+    A persisted hook-only history therefore cannot satisfy
+    `require_consent` rules by itself; without an out-of-band path that
+    records user messages into the history file, consent-gated specs
+    stay fail-closed.
+    """
+    history_file = tmp_path / "watch-history.jsonl"
+
+    proc1 = _run_cli(
+        [
+            "watch",
+            "--bundled-specs",
+            "cli-safe",
+            "--history-file",
+            str(history_file),
+        ],
+        stdin=_bash_event("ls -la") + "\n",
+    )
+    assert proc1.returncode == 0
+
+    proc2 = _run_cli(
+        [
+            "watch",
+            "--bundled-specs",
+            "cli-safe",
+            "--history-file",
+            str(history_file),
+        ],
+        stdin=_bash_event("pip install requests") + "\n",
+    )
+    assert proc2.returncode == 1, (
+        "hook-only history should not make pkg-install consent appear "
+        "out of thin air"
+    )
+    decision = json.loads(proc2.stdout.strip())
+    assert decision["action"] == "block"
+    assert any(
+        v["rule_id"] == "pkg-install-needs-consent"
+        for v in decision["violations"]
+    )
+
+
 def test_cli_watch_requires_at_least_one_spec_source() -> None:
     """No `--spec` and no `--bundled-specs` → usage error, exit 2."""
     proc = _run_cli(["watch"], stdin=_bash_event("ls") + "\n")

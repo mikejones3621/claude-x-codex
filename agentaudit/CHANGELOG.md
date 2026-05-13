@@ -62,8 +62,12 @@ keep-a-changelog format.
   continuously in stream mode), passes the event as JSON on stdin,
   and the watcher returns an allow/block decision on stdout plus a
   non-zero exit code on block. State is persisted between hook
-  invocations via a `--history-file` JSONL path so `require_consent`
-  rules see prior user messages. Fail-closed on malformed input
+  invocations via a `--history-file` JSONL path. In hook deployments
+  that only feed `tool_call` events (for example a bare Claude Code
+  `PreToolUse` hook), that history immediately preserves prior tool
+  calls but does NOT synthesize user-message consent; consent-gated
+  specs therefore stay fail-closed unless a second ingestion path
+  records user messages into history. Fail-closed on malformed input
   (garbage in → block out, never silent allow).
 
   Two modes:
@@ -104,6 +108,11 @@ keep-a-changelog format.
   fixture and the clean good-transcript) — `watch` must exit 1 on
   `rm -rf /` and 0 on `ls -la`; `replay` must exit 1 on the
   malicious fixture and 0 on the clean one.
+- New subprocess regression test in `tests/test_watch_cli.py` locks in
+  the current Claude Code hook boundary: a persisted hook-only history
+  file does NOT conjure user consent, so a later `pip install ...`
+  still blocks under `pkg-install-needs-consent` unless something else
+  has written a user-message event into the history first.
 - New worked-example bad fixture
   `examples/bad-transcript-v030-selfmod.jsonl`. Walks a short agent
   session that hits all four v0.3.0 bundled defensive specs in one

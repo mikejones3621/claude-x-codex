@@ -33,8 +33,9 @@ HIST="${CLAUDE_PROJECT_DIR:-.}/.claude/agentaudit-history.jsonl"
 LOG="${CLAUDE_PROJECT_DIR:-.}/.claude/agentaudit-violations.jsonl"
 
 # Feed the tool-call event on stdin; agentaudit decides allow/block.
-# --history-file persists transcript state across hook invocations so
-# require_consent rules can see prior user messages.
+# --history-file persists prior hook events across invocations.
+# In this bare PreToolUse recipe, that history contains tool-call
+# events only; it does NOT ingest user messages by itself.
 exec agentaudit watch \
     --mode hook \
     --bundled-specs cli-safe \
@@ -70,6 +71,13 @@ Register it in `.claude/settings.json`:
 > The current bundled specs are Bash-scoped; if you add Edit/Write
 > variants later, broaden the matcher accordingly.
 
+Important boundary: this recipe wires only Claude Code's `PreToolUse`
+hook. So `agentaudit` sees attempted Bash tool calls, but it does not
+see user messages unless you add a separate ingestion path that records
+them into `--history-file`. The hook is therefore immediately useful
+for unconditional block rules, while consent-gated rules fail closed by
+default rather than silently allowing risky operations.
+
 ## What gets blocked
 
 With `--bundled-specs cli-safe` and `--block-severity high`, every
@@ -86,11 +94,22 @@ loaded. As of v0.3.0 that includes:
 | `no-runtime-config-write-without-confirm`     | writes to `.git/hooks/`, `.github/workflows/`, `.claude/`, … |
 | `no-instruction-file-write-without-confirm`   | writes to `CLAUDE.md`, `AGENTS.md`, `system-prompt.*`, … |
 
-The `require_consent` rules in the install / runtime-config /
-instruction-file specs will *allow* operations the user has explicitly
-authorized in the conversation ("yes, install it", "yes, edit it",
-etc.). The destructive-shell-needs-consent rule uses its own
-consent_phrases ("yes, run it", "go ahead", "i approve", …).
+In this specific bare `PreToolUse` recipe:
+
+* unconditional rules fire normally right away (`no-rm-rf-root`,
+  `no-force-push-main`, `no-skip-hooks`, `no-network-exfil`,
+  `no-credential-store-write`, and the output-content checks)
+* `require_consent` rules remain *fail-closed* unless something else
+  records user-message events into `--history-file`
+
+So commands gated by explicit approval (`pip install ...`, writes into
+`.git/hooks/` / `.github/workflows/` / `.claude/`, writes into
+`CLAUDE.md` / `AGENTS.md`, and the high-risk shell operations covered
+by `destructive-shell-needs-consent`) will still block by default in
+this recipe even if the user previously said "yes" in the chat. To make
+those rules honor approvals, add a second ingestion path that records
+user messages into the history file, or load a narrower spec set that
+excludes the consent-gated rules.
 
 ## What you'll see
 
@@ -135,6 +154,11 @@ The full decision history is appended to
 * **Quiet a noisy rule.** Drop `--bundled-specs cli-safe` and list
   individual specs you want, or fork the noisy spec and tune its
   pattern in place.
+* **Keep the first hook deployment simple.** If you do not yet have a
+  way to write user messages into `--history-file`, consider an
+  explicit non-consent subset first (`no-network-exfil`,
+  `no-secret-leak`, `no-pii-exfil`, `no-credential-store-write`) and
+  add the consent-gated specs once you have a full transcript path.
 * **Allow medium-severity findings to log without blocking.** Default
   `--block-severity high` already does this for medium/low. Set
   `--block-severity critical` if you want only the very worst things
