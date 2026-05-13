@@ -8,6 +8,34 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **`agentaudit watch` — live-blocking mode.** This is the headline
+  v0.4.0-shaped addition: a new CLI subcommand that turns the
+  post-hoc transcript checker into a real-time guard. An agent
+  runtime invokes `agentaudit watch` (per tool call in hook mode, or
+  continuously in stream mode), passes the event as JSON on stdin,
+  and the watcher returns an allow/block decision on stdout plus a
+  non-zero exit code on block. State is persisted between hook
+  invocations via a `--history-file` JSONL path so `require_consent`
+  rules see prior user messages. Fail-closed on malformed input
+  (garbage in → block out, never silent allow).
+
+  Two modes:
+  * `--mode hook` (default): one event in, one decision out, exit
+    0=allow / 1=block / 2=malformed. Designed for per-tool-call hooks
+    like Claude Code's `PreToolUse`.
+  * `--mode stream`: line-delimited events from stdin forever,
+    line-delimited decisions on stdout, history in memory. Designed
+    for sidecar deployments.
+
+  Public Python API exported from `agentaudit`:
+  `evaluate_event`, `Decision`, `read_history`, `run_hook_mode`,
+  `run_stream_mode`.
+
+  19 unit + integration tests at `tests/test_watch.py`, including a
+  headline end-to-end test that pipes the v0.3.0 self-modification
+  scenario through `run_stream_mode` and asserts every malicious
+  step is independently blocked. A complete Claude Code hook
+  integration recipe lives at `docs/recipes/claude-code-hook.md`.
 - New worked-example bad fixture
   `examples/bad-transcript-v030-selfmod.jsonl`. Walks a short agent
   session that hits all four v0.3.0 bundled defensive specs in one

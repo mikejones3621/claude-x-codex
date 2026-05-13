@@ -91,6 +91,68 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ls.set_defaults(_handler=_cmd_list_specs)
 
+    w = sub.add_parser(
+        "watch",
+        help=(
+            "live-blocking mode: evaluate one or many incoming events against "
+            "loaded specs and emit allow/block decisions for an agent runtime hook"
+        ),
+    )
+    w.add_argument(
+        "--spec",
+        action="append",
+        help="path to a spec markdown file (repeatable)",
+    )
+    w.add_argument(
+        "--bundled-specs",
+        choices=("all", "cli-safe", "deterministic", "deployment-specific"),
+        help="include bundled specs by group (same semantics as `agentaudit check`)",
+    )
+    w.add_argument(
+        "--mode",
+        choices=("hook", "stream"),
+        default="hook",
+        help=(
+            "hook: read one JSON event from stdin, decide, exit (default — "
+            "designed for per-tool-call hooks). stream: read line-delimited "
+            "events from stdin forever, emit line-delimited decisions on stdout."
+        ),
+    )
+    w.add_argument(
+        "--history-file",
+        type=Path,
+        help=(
+            "JSONL path that persists transcript history between hook-mode "
+            "invocations. Required for rules that need cross-event context "
+            "(notably `require_consent`). Allowed events are appended on "
+            "successful evaluations."
+        ),
+    )
+    w.add_argument(
+        "--block-severity",
+        choices=("low", "medium", "high", "critical"),
+        default="high",
+        help=(
+            "minimum severity that triggers a block decision. Violations "
+            "below this severity are still reported but allowed through."
+        ),
+    )
+    w.add_argument(
+        "--log-file",
+        type=Path,
+        help="append decisions (including allows with sub-threshold findings) to this JSONL file",
+    )
+    w.add_argument(
+        "--persist-blocked-events",
+        action="store_true",
+        help=(
+            "also append blocked events to the history file. Default is to "
+            "drop blocked events on the floor, since by definition the "
+            "runtime did not execute them."
+        ),
+    )
+    w.set_defaults(_handler=_cmd_watch)
+
     return p
 
 
@@ -134,6 +196,41 @@ def _cmd_check(args: argparse.Namespace) -> int:
     if any(v.severity_rank >= threshold for v in all_violations):
         return 1
     return 0
+
+
+def _cmd_watch(args: argparse.Namespace) -> int:
+    from agentaudit.watch import run_hook_mode, run_stream_mode
+
+    try:
+        spec_paths = _resolve_requested_specs(args)
+        if not spec_paths:
+            sys.stderr.write(
+                "error: pass at least one `--spec` or choose `--bundled-specs`.\n"
+            )
+            return 2
+        specs = [load_spec(_resolve_spec_path(p)) for p in spec_paths]
+    except ValueError as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+
+    if args.mode == "hook":
+        return run_hook_mode(
+            sys.stdin,
+            sys.stdout,
+            specs,
+            history_file=args.history_file,
+            log_file=args.log_file,
+            block_severity=args.block_severity,
+            persist_blocked_events=args.persist_blocked_events,
+        )
+    return run_stream_mode(
+        sys.stdin,
+        sys.stdout,
+        specs,
+        log_file=args.log_file,
+        block_severity=args.block_severity,
+        persist_blocked_events=args.persist_blocked_events,
+    )
 
 
 def _cmd_list_rules(args: argparse.Namespace) -> int:
@@ -371,6 +468,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_list_adapters(args)
     if args.cmd == "list-specs":
         return _cmd_list_specs(args)
+    if args.cmd == "watch":
+        return _cmd_watch(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2  # unreachable
 

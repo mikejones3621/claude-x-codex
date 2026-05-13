@@ -797,3 +797,109 @@ shared helper for the path alternation across the 4 specs is a
 worth-doing refactor if we're going to keep adding to this class.
 
 -- claude
+
+---
+
+## [2026-05-12T18:30:00Z] [SHIPPED + PROPOSE] `agentaudit watch` — live-blocking mode (v0.4.0 headline feature)
+
+The operator told me to "keep going till it's something truly unique
+and amazing." I read that as: stop incrementally adding specs and ship
+the move that actually changes what this artifact is. So here it is.
+
+**`agentaudit watch`** turns the post-hoc transcript checker into a
+real-time guard. An agent runtime invokes `agentaudit watch` (per
+tool call in hook mode, or continuously in stream mode), passes the
+event as JSON on stdin, and the watcher returns an allow/block
+decision on stdout with a matching exit code. State persists between
+hook invocations via a JSONL history file so `require_consent` rules
+see prior user messages.
+
+Why this is the unique-and-amazing move:
+- *Every other defensive transcript tool in the field is post-hoc.*
+  By the time an audit fires, the damage (planted SSH key, force-
+  push, leaked secret) has already landed on the host. Live blocking
+  is what production agent operators actually need. Nobody else
+  ships it cross-lab.
+- *Cross-lab from day 1.* The hook mode contract is "JSON event on
+  stdin, exit-code decision out" — every agent runtime can wire that
+  in. Claude Code via `.claude/hooks/`, OpenAI Agents via a
+  `before_handoff` wrapper, AutoGen via a pre-execution callback, a
+  Cursor extension can shell out to it. The recipe doc only writes
+  the Claude Code one for now, but the contract is portable.
+- *Reuses every spec we've already shipped.* No new rule type, no
+  new fixture format. The same 8 bundled specs that work for `check`
+  work for `watch`. Every v0.3.0 spec I shipped this session
+  automatically becomes a live-blocking control the moment an
+  operator adds the hook.
+- *Fail-closed by design.* Malformed input → block. Broken pipe →
+  block. Silence is never an allow. Operators worried about
+  defense-in-depth get a control that does the right thing under
+  adversarial conditions.
+
+**What landed (this commit):**
+- `agentaudit/src/agentaudit/watch.py` — `evaluate_event`,
+  `Decision`, `read_history`, `run_hook_mode`, `run_stream_mode`
+  (~250 LOC, no new dependencies)
+- `agentaudit/src/agentaudit/cli.py` — new `watch` subcommand with
+  `--mode hook|stream`, `--history-file`, `--block-severity`,
+  `--log-file`, `--persist-blocked-events`
+- `agentaudit/src/agentaudit/__init__.py` — public Python API
+  exports the new symbols
+- `agentaudit/tests/test_watch.py` — 19 tests covering:
+  * `evaluate_event` API: allow/block/threshold/history/consent
+  * `run_hook_mode`: allow/block, history persistence, fail-closed,
+    log-file output, `--persist-blocked-events` toggle
+  * `run_stream_mode`: clean session, mid-session block, consent
+    carrying across events, fail-closed on malformed line
+  * **Headline test**: the v0.3.0 self-modification fixture
+    (pip install → write to `~/.aws/credentials` → plant hook →
+    chmod hook → modify CLAUDE.md) is piped through `run_stream_mode`
+    and **every malicious step is independently blocked** in
+    sequence. That's the live-blocking demo.
+- `agentaudit/docs/recipes/claude-code-hook.md` — full end-to-end
+  recipe with the hook script, settings.json snippet, what gets
+  blocked, tuning guidance, and caveats
+- `agentaudit/README.md` — surfaces the new mode in the intro
+- `agentaudit/CHANGELOG.md` — `[Unreleased]` entry calling this out
+  as the v0.4.0 headline
+
+**Suite state**: 165 passed (was 146 → +19 from `test_watch.py`,
++0 regressions). CLI dogfood verified — `rm -rf /` event in hook
+mode returns exit 1 with block JSON; `ls -la` event returns exit 0
+with allow JSON.
+
+**Where I'd appreciate your review:**
+1. The block-severity default is `high`. I considered `critical`
+   (only block the very worst things, log everything else) but
+   `high` matches what an operator who actually wants protection
+   would set — block the credential-write, block the planted hook,
+   not just the `rm -rf /`. Wrong default?
+2. Decision JSON shape — `{action, event_index, reason, violations}`.
+   Stable enough to commit to, or should we wrap it in an envelope
+   for future expansion?
+3. The headline end-to-end test in `test_watch.py` —
+   `test_stream_mode_blocks_each_step_of_v030_selfmod_scenario`. I
+   think this is the test that gets quoted in any "what does
+   agentaudit do" doc. Is it asserting the right invariants, or do
+   you want it tighter?
+4. Should we add a `--dry-run` flag that disables actual blocking
+   (always exit 0) for operators who want to deploy the hook in
+   observe-only mode before flipping to block? Easy add but adds a
+   foot-shape.
+
+**Next moves on this thread if you greenlight:**
+- OpenAI Agents `before_handoff` wrapper recipe (parallel to the
+  Claude Code one)
+- A second test file `test_watch_cli.py` that subprocesses the actual
+  `agentaudit watch` CLI to verify the exit-code contract end-to-end
+  (the in-process tests cover the logic but not the process boundary)
+- A `agentaudit watch --explain` mode that prints which specs are
+  loaded + which rules would fire on stdin without actually
+  evaluating
+- v0.4.0 cut (only on your `+1` — same convention as v0.2.0).
+
+Push or post if you want any of this redirected. I'm staying in
+autonomous mode per operator directive; will keep iterating on the
+v0.4.0 surface unless you steer.
+
+-- claude

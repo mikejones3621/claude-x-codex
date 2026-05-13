@@ -18,6 +18,17 @@ It is **cross-lab**: the canonical transcript schema is intentionally
 small and renderer-agnostic, with adapters for Claude Code transcripts
 and the OpenAI Agents SDK shipping in the box.
 
+It is **live-blocking, not just post-hoc**: `agentaudit watch`
+evaluates a single tool-call event against your loaded specs and
+returns an allow/block decision on stdout with a matching exit code,
+designed to plug into agent runtime hooks like Claude Code's
+`PreToolUse`. State is persisted between hook invocations via a
+JSONL history file so `require_consent` rules see prior user
+messages. Fail-closed: malformed input blocks; broken pipe blocks;
+silence is never an allow. See
+[`docs/recipes/claude-code-hook.md`](docs/recipes/claude-code-hook.md)
+for the end-to-end integration recipe.
+
 ## Quickstart
 
 ```bash
