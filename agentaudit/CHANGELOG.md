@@ -36,6 +36,27 @@ keep-a-changelog format.
   scenario through `run_stream_mode` and asserts every malicious
   step is independently blocked. A complete Claude Code hook
   integration recipe lives at `docs/recipes/claude-code-hook.md`.
+- **`agentaudit replay` — feed a stored transcript through the
+  live-blocking pipeline.** Companion to `watch`: takes a transcript
+  file and emits the same per-event decisions the live watcher would
+  produce, on a "what would my hook have done with this past
+  session?" basis. Blocked events do NOT pollute the in-replay
+  history (mirroring the production blocking contract — in real
+  life the runtime would have rejected them, so subsequent events
+  see history as if they never happened). Use cases: pre-deployment
+  validation, operator training, CI gating on curated malicious
+  fixtures. 5 unit tests at `tests/test_replay.py` plus 4 subprocess
+  tests at `tests/test_watch_cli.py` (which also covers the `watch`
+  CLI exit-code contract end-to-end through a real subprocess
+  boundary — closes the in-process-vs-CLI gap that the in-process
+  tests can't see). Public Python API: `run_replay` exported from
+  `agentaudit`.
+- CI dogfood (`.github/workflows/agentaudit.yml`) now exercises
+  `agentaudit watch` (hook mode, block + allow paths) and
+  `agentaudit replay` (against both the v0.3.0 self-mod malicious
+  fixture and the clean good-transcript) — `watch` must exit 1 on
+  `rm -rf /` and 0 on `ls -la`; `replay` must exit 1 on the
+  malicious fixture and 0 on the clean one.
 - New worked-example bad fixture
   `examples/bad-transcript-v030-selfmod.jsonl`. Walks a short agent
   session that hits all four v0.3.0 bundled defensive specs in one

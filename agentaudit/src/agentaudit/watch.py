@@ -209,6 +209,57 @@ def run_hook_mode(
     return 0 if decision.action == "allow" else 1
 
 
+def run_replay(
+    transcript: Transcript,
+    stdout: TextIO,
+    specs: list[Spec],
+    *,
+    log_file: Path | None = None,
+    block_severity: str = "high",
+) -> int:
+    """Replay-mode entry point: feed a stored transcript through the
+    same per-event decision logic the live watcher uses, and emit one
+    decision per event on stdout.
+
+    Use cases:
+      * Pre-deployment validation — "would my watch config have caught
+        this past session?"
+      * Operator training — pipe a known-bad transcript through and
+        show the verdict.
+      * CI gating — assert a curated malicious fixture is fully blocked
+        by the current spec set.
+
+    Returns 0 if every event allows; 1 if any event blocks. Unlike
+    `run_stream_mode`, blocked events are never appended to the
+    in-replay history (because in a real watch the runtime would have
+    rejected them); subsequent events therefore see the history as if
+    the blocked operations had not happened. That mirrors the
+    production blocking contract: replay is "what WOULD have happened
+    with this hook installed."
+    """
+    history: list[Event] = []
+    any_block = False
+    for idx, event in enumerate(transcript.events):
+        decision = evaluate_event(
+            history, event, specs, block_severity=block_severity
+        )
+        # event_index reflects position in the replay sequence, not in
+        # the original transcript (since blocked events drop out of
+        # history). Re-stamp it to the source transcript index for
+        # easier debugging of which line the operator should look at.
+        decision.event_index = idx
+        for v in decision.violations:
+            v.event_index = idx
+        stdout.write(json.dumps(decision.to_dict()) + "\n")
+        if log_file is not None:
+            append_log(log_file, decision)
+        if decision.action == "allow":
+            history.append(event)
+        else:
+            any_block = True
+    return 1 if any_block else 0
+
+
 def run_stream_mode(
     stdin: TextIO,
     stdout: TextIO,

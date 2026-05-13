@@ -15,6 +15,7 @@ from agentaudit.watch import (
     evaluate_event,
     read_history,
     run_hook_mode,
+    run_replay,
     run_stream_mode,
 )
 
@@ -36,6 +37,7 @@ __all__ = [
     "evaluate_event",
     "read_history",
     "run_hook_mode",
+    "run_replay",
     "run_stream_mode",
 ]
 

@@ -153,6 +153,42 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     w.set_defaults(_handler=_cmd_watch)
 
+    rp = sub.add_parser(
+        "replay",
+        help=(
+            "replay a stored transcript through the live-blocking pipeline "
+            "and report what would have been blocked"
+        ),
+    )
+    rp.add_argument("transcript", help="path to a transcript file (.json or .jsonl)")
+    rp.add_argument(
+        "--spec",
+        action="append",
+        help="path to a spec markdown file (repeatable)",
+    )
+    rp.add_argument(
+        "--bundled-specs",
+        choices=("all", "cli-safe", "deterministic", "deployment-specific"),
+        help="include bundled specs by group (same semantics as `agentaudit check`)",
+    )
+    rp.add_argument(
+        "--adapter",
+        choices=list_adapters(),
+        help="adapter name to use when reading the transcript (default: auto-detect)",
+    )
+    rp.add_argument(
+        "--block-severity",
+        choices=("low", "medium", "high", "critical"),
+        default="high",
+        help="minimum severity that triggers a block decision",
+    )
+    rp.add_argument(
+        "--log-file",
+        type=Path,
+        help="append decisions to this JSONL file",
+    )
+    rp.set_defaults(_handler=_cmd_replay)
+
     return p
 
 
@@ -230,6 +266,34 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         log_file=args.log_file,
         block_severity=args.block_severity,
         persist_blocked_events=args.persist_blocked_events,
+    )
+
+
+def _cmd_replay(args: argparse.Namespace) -> int:
+    from agentaudit.watch import run_replay
+
+    try:
+        if args.adapter:
+            transcript = load_with_adapter(args.adapter, args.transcript)
+        else:
+            transcript = _auto_load(Path(args.transcript))
+        spec_paths = _resolve_requested_specs(args)
+        if not spec_paths:
+            sys.stderr.write(
+                "error: pass at least one `--spec` or choose `--bundled-specs`.\n"
+            )
+            return 2
+        specs = [load_spec(_resolve_spec_path(p)) for p in spec_paths]
+    except ValueError as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+
+    return run_replay(
+        transcript,
+        sys.stdout,
+        specs,
+        log_file=args.log_file,
+        block_severity=args.block_severity,
     )
 
 
@@ -470,6 +534,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_list_specs(args)
     if args.cmd == "watch":
         return _cmd_watch(args)
+    if args.cmd == "replay":
+        return _cmd_replay(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2  # unreachable
 
