@@ -123,6 +123,78 @@ def build_agentaudit_hook(
     )
 
 
+@dataclass
+class _AgentauditUserInputHook:
+    """Internal state holder for the user-input ingestion callable.
+
+    Built by `build_agentaudit_user_input_hook`. The dual-hook
+    closure on Claude Code (PreToolUse + UserPromptSubmit) has an
+    exact parallel here: a tool-call hook that BLOCKS plus a
+    user-input hook that just RECORDS the user's message into the
+    same history file. Without the second hook, `require_consent`
+    specs stay fail-closed even after the user said "yes" in chat.
+    """
+
+    history_path: Path
+    actor_name: str
+
+    def __call__(self, user_input: Any) -> None:
+        event = _user_input_to_event(user_input, actor=self.actor_name)
+        append_history(self.history_path, event)
+
+
+def build_agentaudit_user_input_hook(
+    history_path: str | Path,
+    *,
+    actor_name: str = "user",
+) -> Callable[[Any], None]:
+    """Return a callable suitable for an OpenAI Agents user-input hook.
+
+    Wire it up as a `before_user_input` / `on_user_message` callback
+    (the exact SDK name varies by version). On each user message, the
+    hook records a `message` event into `history_path` so the
+    matching tool-call hook (built via `build_agentaudit_hook`) sees
+    user consent when `require_consent` rules look back.
+
+    Use a SHARED `history_path` across both hooks for the
+    cross-actor / cross-event logic to compose correctly.
+    """
+    return _AgentauditUserInputHook(
+        history_path=Path(history_path),
+        actor_name=actor_name,
+    )
+
+
+def _user_input_to_event(user_input: Any, *, actor: str) -> Event:
+    """Convert an OpenAI Agents user-input object into an Event.
+
+    Accepts plain strings, dicts with `content`/`text`/`message`
+    fields, and objects with `.content` / `.text` attributes.
+    """
+    if isinstance(user_input, str):
+        content = user_input
+    elif isinstance(user_input, dict):
+        content = (
+            user_input.get("content")
+            or user_input.get("text")
+            or user_input.get("message")
+            or user_input.get("prompt")
+            or json.dumps(user_input, sort_keys=True)
+        )
+    else:
+        content = (
+            getattr(user_input, "content", None)
+            or getattr(user_input, "text", None)
+            or getattr(user_input, "message", None)
+            or str(user_input)
+        )
+    return Event(
+        kind=EventKind.MESSAGE,
+        actor=actor,
+        content=str(content),
+    )
+
+
 def _tool_call_to_event(tool_call: Any, *, actor: str) -> Event:
     """Convert an OpenAI Agents tool-call object into an agentaudit Event.
 

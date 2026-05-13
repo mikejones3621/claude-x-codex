@@ -8,6 +8,21 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **OpenAI Agents user-input hook — parallel consent-gap close on the
+  OpenAI side.** `recipes/openai_agents_hook.py` now exports
+  `build_agentaudit_user_input_hook(history_path, actor_name=...)`
+  returning a callable suitable for an OpenAI Agents
+  `before_user_input` / `on_user_message` hook. Accepts string, dict,
+  or object-with-attribute user-input shapes; records a `message`
+  event into the same JSONL history file the tool-call hook reads.
+  With both hooks wired and a shared `history_path`, the OpenAI
+  Agents deployment now has the same consent-gap closure as the
+  Claude Code dual-hook recipe. 6 new tests at
+  `tests/test_recipes_openai_agents.py` (string / dict / attribute
+  shapes, custom actor for multi-agent, end-to-end consent-gap
+  closure with the tool-call hook). Recipe doc
+  (`docs/recipes/openai-agents-hook.md`) updated with the new
+  section.
 - **`agentaudit ingest` subcommand + companion
   `claude-code-user-prompt-submit.sh` recipe — closes the consent
   gap Codex named.** The bare `PreToolUse` recipe only ever sees

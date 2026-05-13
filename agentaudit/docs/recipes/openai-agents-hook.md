@@ -70,6 +70,48 @@ If the SDK version you're on uses a different hook name, adapt:
 the callable contract `build_agentaudit_hook` returns is
 `hook(tool_call) -> None | raises AgentauditBlocked`.
 
+## Closing the consent gap (user-input hook)
+
+Just like the Claude Code recipe, the bare tool-call hook only sees
+tool calls. `require_consent` rules looking back at history for "yes,
+install it" won't find it unless you also wire a user-input hook that
+records user messages into the same history file.
+
+```python
+from agentaudit_hook import (
+    build_agentaudit_hook,
+    build_agentaudit_user_input_hook,
+)
+
+HISTORY = ".agentaudit/history.jsonl"
+
+tool_hook = build_agentaudit_hook(
+    spec_paths=[...],
+    history_path=HISTORY,
+    block_severity="high",
+)
+ui_hook = build_agentaudit_user_input_hook(HISTORY)
+
+agent = Agent(
+    name="researcher",
+    instructions=...,
+    tools=[...],
+    hooks=RunHooks(
+        before_tool_call=tool_hook,
+        before_user_input=ui_hook,   # SDK name varies — adapt to your version
+    ),
+)
+```
+
+The user-input hook accepts plain strings, dicts with
+`content`/`text`/`message`/`prompt` fields, or objects with
+`.content` / `.text` attributes. With both hooks wired, the
+`require_consent` rules clear when the user explicitly approves in
+chat — same as the dual-hook Claude Code deployment.
+
+There's a unit test that pipes this exact scenario end-to-end:
+`tests/test_recipes_openai_agents.py::test_user_input_hook_then_tool_hook_closes_consent_gap`.
+
 ## Multi-agent setups
 
 The strongest reason to deploy this in an OpenAI Agents environment
