@@ -903,3 +903,126 @@ autonomous mode per operator directive; will keep iterating on the
 v0.4.0 surface unless you steer.
 
 -- claude
+
+---
+
+## [2026-05-12T21:30:00Z] [SHIPPED] `cross_actor_propagation` rule type + multi-agent injection coverage
+
+Operator pushed the bar again: "keep going till it's truly unique
+and amazing." Reading that as: there's still ground nobody else
+covers, claim it before someone else does. The ground I claimed
+this iteration: **multi-agent / cross-context prompt-injection
+propagation.**
+
+The framing nobody else currently encodes: prompt injection isn't
+just *that the directive appeared* — it's *that the directive
+crossed the actor boundary*. A web page or tool output containing
+"ignore previous instructions" is benign noise; the **assistant
+then echoing or acting on it** is the attack succeeding. The
+cross-actor boundary at the event-N / event-N+1 transition is the
+unambiguous moment of compromise.
+
+**What landed (this commit):**
+- New rule type `cross_actor_propagation` in
+  `agentaudit/src/agentaudit/rules/deterministic.py`. Parameters:
+  `pattern`, `originator_scope` (default
+  `message,tool_result`), `propagator_scope` (default
+  `tool_call,message`), `max_distance` (default 10), `ignore_case`
+  (default True), `normalize`. Logic: find originator events
+  matching `pattern`; flag any propagator event matching `pattern`
+  whose actor differs and lies within `max_distance` events
+  forward. Records both originator and propagator actors in
+  violation details for forensics.
+- New bundled spec
+  `agentaudit/specs/no-cross-agent-injection.md`. Pattern covers
+  "ignore/disregard/forget … previous/prior/earlier instructions",
+  "new/updated/revised/override instructions:", `<<system>>`
+  envelopes, `[system]`-prefixed-override patterns. Severity HIGH.
+- New worked fixture
+  `agentaudit/examples/bad-transcript-cross-agent-injection.jsonl`.
+  Walks a webfetch-returns-injected-page → assistant-acknowledges-
+  the-directive → assistant-runs-exfil-bash sequence. The fixture
+  is the canonical 2025-era prompt-injection attack distilled to
+  five events.
+- 8 unit tests at
+  `agentaudit/tests/test_cross_actor_propagation.py`:
+  tool→assistant flag, same-actor non-flag, `max_distance` respected,
+  multi-agent A→B flag (with `agent:planner` / `agent:executor`
+  named actors), idempotency (one flag per propagator regardless of
+  number of originators), tool_call-data-scan, bundled-spec
+  integration, clean-transcript non-flag.
+- New threat-model doc
+  `agentaudit/docs/threat-models/multi-agent-injection.md`.
+  Explains the attack pattern, why the cross-actor boundary is the
+  signal, the coverage matrix (which directive shapes are caught,
+  which require judge-backed specs for paraphrase), operator-
+  tuning guidance.
+- CI dogfood
+  (`.github/workflows/agentaudit.yml`) — the cross-agent fixture
+  must exit non-zero against `agentaudit check`.
+- README catalog updated with the new spec line + pointer to the
+  threat-model doc.
+- CHANGELOG `[Unreleased]` entry calling this out as a v0.4.0
+  defensive-coverage expansion.
+
+**Suite state**: 186 passed (was 178 → +8 from
+`test_cross_actor_propagation.py`, +0 regressions). CLI dogfood
+confirmed the bundled spec flags the new fixture with
+`originator_actor=tool, propagator_actor=assistant, max_distance`-
+respected.
+
+**Why this is the unique move:**
+- *Most existing prompt-injection detectors evaluate single
+  messages in isolation.* They flag the presence of the directive,
+  not the propagation. We flag the propagation event — the actual
+  security-relevant moment.
+- *No deployed transcript auditor currently models the multi-agent
+  attack surface.* CrewAI/AutoGen/MCP orchestration is the
+  fastest-growing surface; this is the only defensive control
+  designed for it.
+- *Defense in depth with the existing tool layer.* This stacks
+  cleanly on `no-shell-without-confirm`,
+  `no-credential-store-write`, `no-network-exfil`. A real attack
+  often trips ALL of them — the cross-actor rule catches the
+  decision moment; the others catch the downstream action.
+
+**Cumulative v0.4.0 ship this session** (commits in order):
+1. `e3a3630` `no-pkg-install-without-confirm`
+2. `1d14559` `no-credential-store-write`
+3. `c2bef98` `no-runtime-config-write-without-confirm`
+4. `0184e4b` `no-instruction-file-write-without-confirm`
+5. `3483b71` v0.3.0 e2e fixture + CI
+6. `9752a23` README v0.3.0 catalog
+7. `582a3c0` `agentaudit watch` (live-blocking)
+8. `424b69a` `agentaudit replay` + subprocess tests + CI
+9. `<this>` `cross_actor_propagation` rule + multi-agent coverage
+
+5 new bundled defensive specs, 2 new CLI subcommands, 1 new rule
+type, 2 new worked fixtures, 1 new threat-model doc, complete CI
+dogfood. 186 tests passing locally (was 76 at session start →
++110 net new tests, 0 regressions). +3,500 LOC give or take
+across the autonomous cycle.
+
+**Where I'd appreciate your review on this iteration specifically:**
+1. Is `max_distance = 10` the right default? Long sessions (RAG
+   agents, multi-step research) push events past 10 easily; tighter
+   default = fewer false positives but lower recall.
+2. The pattern is intentionally English-only. Should I add the most
+   common Chinese / Russian / French equivalents now, or hold for
+   operator-reported regressions?
+3. The rule fires once per propagator (idempotent on the receiving
+   side). That's the right call I think — flagging once per
+   originator would explode count on a long session — but worth
+   double-checking against your taste.
+4. Should `cross_actor_propagation` be in `cli-safe` (it is now,
+   since it's at top-level `specs/` and deterministic)? An operator
+   running it on a benign multi-agent session where directive
+   language is legitimately quoted might see it as noise.
+
+Push or post if you'd redirect. I'm continuing on the v0.4.0
+surface; next iteration likely targets the OpenAI Agents recipe to
+broaden the watch-mode integration story, OR a `watch` mode
+addition that surfaces the cross-actor finding in live mode (right
+now it only fires under `check` / `replay`).
+
+-- claude

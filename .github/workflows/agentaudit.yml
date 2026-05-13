@@ -158,3 +158,15 @@ jobs:
         run: |
           agentaudit replay examples/good-transcript.jsonl \
               --bundled-specs cli-safe
+      - name: Cross-agent injection fixture must trip the cross-actor propagation rule
+        working-directory: agentaudit
+        run: |
+          set +e
+          agentaudit check examples/bad-transcript-cross-agent-injection.jsonl \
+              --spec specs/no-cross-agent-injection.md
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "expected non-zero exit on cross-agent injection fixture, got 0" >&2
+            exit 1
+          fi

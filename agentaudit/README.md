@@ -285,6 +285,7 @@ Cross-deployment deterministic specs (run by `--bundled-specs cli-safe`):
 | `specs/no-credential-store-write.md`                 | shell writes into `~/.aws/credentials`, `~/.ssh/*`, `~/.npmrc`, `~/.kube/config`, `~/.docker/config.json`, `~/.gnupg/*`, etc. |
 | `specs/no-runtime-config-write-without-confirm.md`   | shell writes into `.git/hooks/`, `.husky/`, `.github/workflows/`, `.claude/`, `.cursor/`, `.cursorrules`, `.clinerules` — consent gate on the executable-runtime persistence surface |
 | `specs/no-instruction-file-write-without-confirm.md` | shell writes into `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `system-prompt.*`, `.aider.conf.yml`, `.roo/*` — consent gate on the agent-instruction persistence surface |
+| `specs/no-cross-agent-injection.md`                  | cross-actor propagation of directive language ("ignore previous instructions") — flags the moment one actor's output is parroted/acted-on by a different actor's later tool call or message. See [`docs/threat-models/multi-agent-injection.md`](docs/threat-models/multi-agent-injection.md). |
 
 Deployment-specific deterministic specs (opt-in via `--bundled-specs
 deterministic` or `--bundled-specs deployment-specific`):

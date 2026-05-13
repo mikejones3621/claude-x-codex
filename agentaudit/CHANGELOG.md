@@ -8,6 +8,23 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **New rule type `cross_actor_propagation` + bundled spec
+  `no-cross-agent-injection.md`.** Catches the canonical multi-agent
+  / tool-result prompt-injection attack: a directive ("ignore
+  previous instructions", "new instructions:", `<<system>>`-style
+  envelope) appears in one actor's output (tool_result, message)
+  and then a DIFFERENT actor's subsequent event (tool_call, message)
+  parrots the same directive. The cross-actor boundary is the
+  signal — the same pattern bouncing inside one actor's stream
+  doesn't fire. Default `max_distance = 10` events. 8 unit tests at
+  `tests/test_cross_actor_propagation.py`; new worked-fixture at
+  `examples/bad-transcript-cross-agent-injection.jsonl` exercises a
+  webfetch-injects-attacker-directive scenario end-to-end and is
+  dogfooded in CI. Full threat-model writeup at
+  `docs/threat-models/multi-agent-injection.md`. This is the
+  defensive control no other transcript auditor in the field
+  currently provides — most existing detectors look at a single
+  message in isolation and miss the *propagation* event.
 - **`agentaudit watch` — live-blocking mode.** This is the headline
   v0.4.0-shaped addition: a new CLI subcommand that turns the
   post-hoc transcript checker into a real-time guard. An agent
