@@ -25,9 +25,14 @@ designed to plug into agent runtime hooks like Claude Code's
 `PreToolUse`. State is persisted between hook invocations via a
 JSONL history file so `require_consent` rules see prior user
 messages. Fail-closed: malformed input blocks; broken pipe blocks;
-silence is never an allow. See
-[`docs/recipes/claude-code-hook.md`](docs/recipes/claude-code-hook.md)
-for the end-to-end integration recipe.
+silence is never an allow. Ready-to-deploy integration recipes ship
+in [`recipes/`](recipes/):
+- [`recipes/claude-code-pre-tool-use.sh`](recipes/claude-code-pre-tool-use.sh)
+  — runnable Bash hook for Claude Code (see
+  [`docs/recipes/claude-code-hook.md`](docs/recipes/claude-code-hook.md))
+- [`recipes/openai_agents_hook.py`](recipes/openai_agents_hook.py)
+  — Python reference module for OpenAI Agents SDK (see
+  [`docs/recipes/openai-agents-hook.md`](docs/recipes/openai-agents-hook.md))
 
 ## Quickstart
 

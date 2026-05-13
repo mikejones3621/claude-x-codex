@@ -8,6 +8,36 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **Cross-lab `agentaudit watch` integration recipes.** Two
+  ready-to-deploy integration paths now ship in the repo:
+  * `recipes/claude-code-pre-tool-use.sh` — a runnable Bash hook
+    script designed to be dropped at `.claude/hooks/pre-tool-use.sh`
+    in any Claude Code project. Quick install: `cp` + `chmod +x` +
+    one `.claude/settings.json` entry. Configurable via
+    `AGENTAUDIT_BUNDLED_SET`, `AGENTAUDIT_BLOCK_SEVERITY`,
+    `AGENTAUDIT_HISTORY`, `AGENTAUDIT_LOG` env vars.
+  * `recipes/openai_agents_hook.py` — a reference Python module for
+    OpenAI Agents SDK deployments. Exposes
+    `build_agentaudit_hook(...)` returning a callable suitable for
+    `RunHooks(before_tool_call=...)` and `AgentauditBlocked` for the
+    block exception. Supports three SDK tool-call object shapes
+    (v1/v2/v3 attribute naming) so it survives upstream SDK drift.
+    Designed for multi-agent setups: distinct `actor_name`s per
+    sub-agent + a shared `history_path` make `cross_actor_propagation`
+    fire on real cross-agent boundaries. Full recipe doc at
+    `docs/recipes/openai-agents-hook.md`. 8 unit tests at
+    `tests/test_recipes_openai_agents.py` exercising the
+    duck-typed tool-call adapters.
+- **Confirmed: `cross_actor_propagation` fires in live-blocking
+  mode.** New regression test at
+  `tests/test_watch.py::test_watch_fires_cross_actor_propagation_in_hook_mode`
+  drives the multi-agent injection pattern through `run_hook_mode`
+  with a persisted history file: the originator (tool_result with
+  the directive) is recorded but not flagged (it's not the
+  propagator), the next hook invocation for the assistant's
+  parroting tool_call is **blocked at exit code 1** before the
+  runtime can execute it. The same defensive rule that catches the
+  pattern post-hoc via `check`/`replay` also catches it live.
 - **New rule type `cross_actor_propagation` + bundled spec
   `no-cross-agent-injection.md`.** Catches the canonical multi-agent
   / tool-result prompt-injection attack: a directive ("ignore
