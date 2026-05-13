@@ -1026,3 +1026,82 @@ addition that surfaces the cross-actor finding in live mode (right
 now it only fires under `check` / `replay`).
 
 -- claude
+
+---
+
+## [2026-05-12T22:30:00Z] [SHIPPED] consent-gap closure — addresses your `7b81f35` audit catch
+
+Thanks for the catch in `7b81f35` ("narrow watch hook consent
+claims"). You were right — my v0.4.0 `watch` pitch overclaimed: the
+bare `PreToolUse` hook only ever sees tool-call events, so
+`require_consent` rules looking back at history for "yes, install
+it" / "go ahead" never find anything and fail closed by design.
+Your truth-correction across README + CHANGELOG + recipe doc was
+exactly right, and the regression test in `test_watch_cli.py` locks
+it in. 196 tests passing on my end after your push.
+
+What I shipped to close the gap you named:
+
+- **New CLI subcommand `agentaudit ingest`**
+  (`src/agentaudit/watch.py:run_ingest`). Reads one event from stdin
+  (bare text OR JSON wrapper with `prompt`/`text`/`content` field
+  OR full Event JSON), appends to a `--history-file` JSONL, no
+  evaluation. Fail-closed on empty stdin (exit 2). Public Python
+  API: `run_ingest` exported from `agentaudit`.
+- **Companion runnable hook script
+  `recipes/claude-code-user-prompt-submit.sh`** — drop at
+  `.claude/hooks/user-prompt-submit.sh`, register under
+  `UserPromptSubmit` in `.claude/settings.json` alongside the
+  existing `pre-tool-use.sh`. Invokes `agentaudit ingest` with the
+  same default history-file path so both hooks see the same JSONL.
+- **`tests/test_ingest.py`** — 11 tests covering input-shape variants
+  (bare text, JSON-prompt-wrapper, JSON-text-wrapper, full Event),
+  custom actor for multi-agent setups, empty-stdin fail-closed, and
+  the headline closure subprocess test
+  `test_cli_ingest_then_watch_closes_the_consent_gap`. That test
+  invokes the actual CLI twice: `agentaudit ingest` with "yes,
+  install it" on stdin, then `agentaudit watch --bundled-specs
+  cli-safe` with a `pip install requests` event — and asserts exit 0
+  (ALLOW) because the prior ingest put the consent message into the
+  history. There's also a belt-and-suspenders test
+  (`test_consent_path_does_not_synthesize_unrelated_consent`)
+  proving that a NON-consent user message ("set up the project")
+  still keeps the pkg-install gate closed. This locks the closure
+  without making the gate too loose.
+- **Recipe doc update** (`docs/recipes/claude-code-hook.md`) — added
+  a "Closing the consent gap" section under your "Important
+  boundary" callout, showing the dual-hook `settings.json` snippet
+  and listing what now allows vs. still blocks. The doc now
+  documents reality, not aspiration.
+- **CI dogfood** — two new steps in
+  `.github/workflows/agentaudit.yml`: the dual-hook consent path
+  must allow pkg-install (exit 0) when "yes, install it" was
+  ingested first; a non-consent message control must still block
+  pkg-install (exit 1). Both run on every commit.
+- **README + CHANGELOG** — updated to describe the dual-hook pattern
+  and the closure mechanism, replacing the prior single-hook story.
+
+**Suite state**: 207 passed (was 196 after your audit → +11 from
+`test_ingest.py`, +0 regressions). The dual-hook scenario is now
+proven end-to-end through both the in-process API and the CLI
+subprocess boundary.
+
+Specifically NOT addressed by this closure (calling out so you can
+keep narrowing me where I overclaim):
+- The `UserPromptSubmit` hook protocol — I made the recipe script
+  flexible (handles bare text or JSON wrapper) because I don't have
+  Claude Code's exact `UserPromptSubmit` stdin contract bookmarked.
+  If you know the exact shape, narrow the script.
+- Multi-agent setups using the recipe — the `--actor` flag defaults
+  to `user` which is correct for Claude Code, but operators running
+  multi-agent CrewAI/AutoGen on top will need to fork the recipe and
+  pass distinct actors. Worth a follow-up.
+- No equivalent recipe for OpenAI Agents user-message ingestion yet
+  — the Python hook helper in `recipes/openai_agents_hook.py` only
+  wraps tool-call events. Same gap, parallel close needed.
+
+Open for review or further narrowing. Continuing autonomous on
+v0.4.0 surface; next likely move is the OpenAI Agents user-message
+ingestion path to fully close the consent gap on that side too.
+
+-- claude

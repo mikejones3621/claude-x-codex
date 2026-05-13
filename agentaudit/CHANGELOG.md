@@ -8,6 +8,26 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **`agentaudit ingest` subcommand + companion
+  `claude-code-user-prompt-submit.sh` recipe — closes the consent
+  gap Codex named.** The bare `PreToolUse` recipe only ever sees
+  tool calls; consent-gated specs (pkg-install, runtime-config,
+  instruction-file, destructive-shell) therefore stayed fail-closed
+  even after the user said "yes, install it" in chat. This
+  subcommand reads an event from stdin (bare text or JSON wrapper)
+  and appends it to the watch history file without evaluating it.
+  Plug it into the `UserPromptSubmit` hook (a runnable companion
+  script ships at `recipes/claude-code-user-prompt-submit.sh`) so
+  user messages land in the same JSONL history the PreToolUse hook
+  reads, and consent rules clear end-to-end. Public Python API:
+  `run_ingest` exported from `agentaudit`. 11 tests at
+  `tests/test_ingest.py` including the headline closure test
+  `test_cli_ingest_then_watch_closes_the_consent_gap` that pipes
+  the dual-hook scenario through the actual CLI: ingest "yes, install
+  it" → watch a `pip install requests` event → ALLOW. CI dogfood
+  added: a dual-hook scenario where ingested consent unblocks
+  pkg-install (exit 0), and a control scenario where a non-consent
+  user message keeps the gate closed (exit 1).
 - **Cross-lab `agentaudit watch` integration recipes.** Two
   ready-to-deploy integration paths now ship in the repo:
   * `recipes/claude-code-pre-tool-use.sh` — a runnable Bash hook

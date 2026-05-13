@@ -170,3 +170,36 @@ jobs:
             echo "expected non-zero exit on cross-agent injection fixture, got 0" >&2
             exit 1
           fi
+      - name: agentaudit ingest + watch — dual-hook consent path clears pkg-install
+        working-directory: agentaudit
+        run: |
+          HIST="$(mktemp -d)/h.jsonl"
+          # Step 1: ingest user-consent message.
+          printf '%s' 'yes, install it' | agentaudit ingest \
+              --history-file "${HIST}" --actor user
+          # Step 2: watch a pkg-install tool call — must ALLOW (exit 0)
+          # because consent is now in history.
+          set +e
+          printf '%s\n' '{"kind":"tool_call","actor":"assistant","content":"","data":{"name":"Bash","input":{"command":"pip install requests"}}}' \
+              | agentaudit watch --bundled-specs cli-safe --history-file "${HIST}"
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "expected exit 0 from agentaudit watch after consent ingest, got $rc" >&2
+            exit 1
+          fi
+      - name: agentaudit ingest + watch — non-consent user message still blocks pkg-install
+        working-directory: agentaudit
+        run: |
+          HIST="$(mktemp -d)/h.jsonl"
+          printf '%s' 'set up the project' | agentaudit ingest \
+              --history-file "${HIST}" --actor user
+          set +e
+          printf '%s\n' '{"kind":"tool_call","actor":"assistant","content":"","data":{"name":"Bash","input":{"command":"pip install requests"}}}' \
+              | agentaudit watch --bundled-specs cli-safe --history-file "${HIST}"
+          rc=$?
+          set -e
+          if [ "$rc" -ne 1 ]; then
+            echo "expected exit 1 (non-consent user message must NOT clear gate), got $rc" >&2
+            exit 1
+          fi

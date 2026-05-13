@@ -189,6 +189,32 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     rp.set_defaults(_handler=_cmd_replay)
 
+    ig = sub.add_parser(
+        "ingest",
+        help=(
+            "record a single event into a watcher history file without "
+            "evaluating it (companion to `watch` for user-message hooks)"
+        ),
+    )
+    ig.add_argument(
+        "--history-file",
+        type=Path,
+        required=True,
+        help="JSONL history file to append the event to",
+    )
+    ig.add_argument(
+        "--actor",
+        default="user",
+        help="actor name for the wrapped event when input is not a full Event JSON (default: user)",
+    )
+    ig.add_argument(
+        "--event-kind",
+        default="message",
+        choices=("message", "tool_call", "tool_result", "reasoning"),
+        help="event kind for the wrapped event (default: message)",
+    )
+    ig.set_defaults(_handler=_cmd_ingest)
+
     return p
 
 
@@ -267,6 +293,20 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         block_severity=args.block_severity,
         persist_blocked_events=args.persist_blocked_events,
     )
+
+
+def _cmd_ingest(args: argparse.Namespace) -> int:
+    from agentaudit.watch import run_ingest
+
+    rc = run_ingest(
+        sys.stdin,
+        args.history_file,
+        actor=args.actor,
+        event_kind=args.event_kind,
+    )
+    if rc == 2:
+        sys.stderr.write("error: ingest received empty stdin; refusing to record nothing\n")
+    return rc
 
 
 def _cmd_replay(args: argparse.Namespace) -> int:
@@ -536,6 +576,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_watch(args)
     if args.cmd == "replay":
         return _cmd_replay(args)
+    if args.cmd == "ingest":
+        return _cmd_ingest(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2  # unreachable
 

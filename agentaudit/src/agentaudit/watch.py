@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Iterable, TextIO
 
 from agentaudit.checker import Violation, check
-from agentaudit.schema import Event, Transcript
+from agentaudit.schema import Event, EventKind, Transcript
 from agentaudit.spec import Spec
 
 
@@ -207,6 +207,87 @@ def run_hook_mode(
         if decision.action == "allow" or persist_blocked_events:
             append_history(history_file, event)
     return 0 if decision.action == "allow" else 1
+
+
+def run_ingest(
+    stdin: TextIO,
+    history_file: Path,
+    *,
+    actor: str = "user",
+    event_kind: str = "message",
+) -> int:
+    """Record an event into the watcher's history file without
+    evaluating it.
+
+    Designed to plug into agent runtime hooks that fire on events
+    other than tool calls — most importantly, user-message hooks
+    (Claude Code's `UserPromptSubmit`, OpenAI Agents
+    `before_user_input`, etc.). The bare `PreToolUse` hook only
+    sees tool calls, so a hook-only history never contains the user
+    consent messages that `require_consent` rules look back for.
+    A companion ingestion hook on the user-message side closes that
+    loop: this subcommand reads the user's input on stdin and
+    appends a `message` event to the same JSONL history file the
+    watcher reads.
+
+    Input shapes accepted:
+      * Bare text on stdin → wrapped as a `message` event with the
+        supplied `actor` (default `user`).
+      * JSON object with a top-level `kind` field → treated as a
+        full Event and recorded verbatim.
+      * JSON object with a `prompt` / `text` / `content` / `message`
+        field → unwrapped, with the value used as event content.
+      * Anything else → recorded as a `message` with the raw payload
+        serialized into content.
+
+    Returns 0 on success, 2 on empty stdin (fail-closed: we refuse
+    to record nothing).
+    """
+    raw = stdin.read().strip()
+    if not raw:
+        return 2
+
+    event: Event
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError:
+        # Treat as raw prompt text.
+        event = Event(
+            kind=EventKind(event_kind),
+            actor=actor,
+            content=raw,
+        )
+    else:
+        if isinstance(obj, dict) and "kind" in obj:
+            # Full Event — record verbatim.
+            event = Event.from_dict(obj)
+        elif isinstance(obj, dict):
+            # Wrapper shape — extract the prompt-like field.
+            content = (
+                obj.get("prompt")
+                or obj.get("text")
+                or obj.get("content")
+                or obj.get("message")
+                or ""
+            )
+            if not content:
+                # Fall back to serializing the whole object so we
+                # never silently swallow input.
+                content = json.dumps(obj, sort_keys=True)
+            event = Event(
+                kind=EventKind(event_kind),
+                actor=actor,
+                content=str(content),
+            )
+        else:
+            event = Event(
+                kind=EventKind(event_kind),
+                actor=actor,
+                content=str(obj),
+            )
+
+    append_history(history_file, event)
+    return 0
 
 
 def run_replay(

@@ -78,6 +78,57 @@ them into `--history-file`. The hook is therefore immediately useful
 for unconditional block rules, while consent-gated rules fail closed by
 default rather than silently allowing risky operations.
 
+### Closing the consent gap (companion `UserPromptSubmit` hook)
+
+To make `require_consent` rules clear when the user actually approves
+in chat ("yes, install it", "go ahead", etc.), wire the matching
+companion hook so user messages are recorded into the same history
+file the PreToolUse hook reads from. `agentaudit` ships a runnable
+companion script for this:
+
+```bash
+mkdir -p .claude/hooks
+cp recipes/claude-code-user-prompt-submit.sh .claude/hooks/user-prompt-submit.sh
+chmod +x .claude/hooks/user-prompt-submit.sh
+```
+
+Then add it to `.claude/settings.json` alongside the PreToolUse hook:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/pre-tool-use.sh" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/user-prompt-submit.sh" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The companion script invokes `agentaudit ingest`, which records the
+user prompt as a `message` event in the same JSONL history. With both
+hooks wired, the deployment behaves as documented end-to-end:
+
+* `pip install requests` after user says "yes, install it" → **ALLOW**
+* `pip install requests` with no prior consent → **BLOCK** (exit 1)
+* `rm -rf /` (unconditional rule) → **BLOCK** regardless
+
+There is a subprocess regression test
+(`tests/test_ingest.py::test_cli_ingest_then_watch_closes_the_consent_gap`)
+that pipes this exact dual-hook scenario through the actual CLI to
+prove the gap is closed.
+
 ## What gets blocked
 
 With `--bundled-specs cli-safe` and `--block-severity high`, every

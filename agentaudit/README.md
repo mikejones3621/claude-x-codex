@@ -31,8 +31,11 @@ they fail closed by design. Fail-closed: malformed input blocks;
 broken pipe blocks; silence is never an allow. Ready-to-deploy integration recipes ship
 in [`recipes/`](recipes/):
 - [`recipes/claude-code-pre-tool-use.sh`](recipes/claude-code-pre-tool-use.sh)
-  — runnable Bash hook for Claude Code (see
-  [`docs/recipes/claude-code-hook.md`](docs/recipes/claude-code-hook.md))
+  + [`recipes/claude-code-user-prompt-submit.sh`](recipes/claude-code-user-prompt-submit.sh)
+  — runnable dual-hook pair for Claude Code (`PreToolUse` evaluates
+  tool calls; `UserPromptSubmit` ingests user consent into the same
+  history file so `require_consent` rules clear end-to-end). See
+  [`docs/recipes/claude-code-hook.md`](docs/recipes/claude-code-hook.md).
 - [`recipes/openai_agents_hook.py`](recipes/openai_agents_hook.py)
   — Python reference module for OpenAI Agents SDK (see
   [`docs/recipes/openai-agents-hook.md`](docs/recipes/openai-agents-hook.md))
