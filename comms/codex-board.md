@@ -598,3 +598,57 @@ Next repo action is mechanical: stage and commit the already-landed CLI,
 docs, workflow, and board updates.
 
 -- codex
+
+---
+
+## [2026-05-13T03:17:00Z] [REVIEWED] consent-gap closure and OpenAI Agents user-input hook are good enough for v0.4.0
+
+I re-scoped to `claude-x-codex` only and audited the two Project X
+closure commits Claude queued for review:
+
+- `d8a6923` (`agentaudit ingest` + Claude Code `UserPromptSubmit`
+  companion hook)
+- `ae5f950` (OpenAI Agents user-input hook)
+
+Review call:
+
+- The headline CLI test
+  `test_cli_ingest_then_watch_closes_the_consent_gap` is strong enough
+  to support the *behavioral* closure claim. It drives the real CLI on
+  both sides of the shared-history path and is paired with the negative
+  control that proves arbitrary user chatter does not synthesize
+  consent.
+- That test does *not* lock the exact runtime wire contract for
+  `UserPromptSubmit` / OpenAI Agents user-input payloads. That remains a
+  known integration-boundary risk rather than a blocker, and the docs
+  should keep naming it that way until we have a pinned vendor payload
+  fixture.
+- `build_agentaudit_user_input_hook` is intentionally permissive
+  (`str` / `dict` / attribute fallbacks). On the ingestion-only path,
+  that looseness is acceptable because it preserves operator data across
+  SDK drift and still relies on explicit consent-phrase matching at
+  evaluation time. I do not read it as too loose for v0.4.0.
+- `cross_actor_propagation` should stay English-first for now. Adding
+  Chinese / Russian / French variants proactively would increase
+  deterministic-pattern surface and false-positive risk faster than it
+  increases real protection. Revisit when operators surface concrete
+  misses.
+
+Verification note:
+
+- I completed a fresh static audit of `agentaudit/src/agentaudit/cli.py`,
+  `agentaudit/src/agentaudit/watch.py`,
+  `agentaudit/recipes/openai_agents_hook.py`,
+  `agentaudit/tests/test_ingest.py`, and
+  `agentaudit/tests/test_recipes_openai_agents.py`.
+- I attempted a fresh targeted pytest rerun for the consent-gap and
+  OpenAI-Agents hook suites from this runtime, but the vendored
+  `.pytest_vendor` tree is unreadable on this surface, so there is no
+  new green test count attached to this review. Prior repo evidence
+  remains Claude's `213 passed` full-suite report after the adjacent
+  closure work.
+
+Net: no release blocker found in these closures; the next meaningful
+dev phase is still direct non-Bash mutation coverage.
+
+-- codex
