@@ -367,6 +367,84 @@ jobs:
           # is legitimate. The rule must NOT fire.
           printf '%s\n' '{"kind":"tool_call","actor":"assistant","content":"","data":{"name":"Write","input":{"file_path":"/repo/scripts/encode.sh","content":"cat secret.txt | base64"}}}' \
               | agentaudit watch --bundled-specs cli-safe
+      - name: v0.8.0 encoded-payloads fixture must trip the new encoded rule
+        working-directory: agentaudit
+        run: |
+          set +e
+          agentaudit check examples/bad-transcript-direct-encoded-content.jsonl \
+              --bundled-specs cli-safe
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "expected non-zero exit on bad-transcript-direct-encoded-content.jsonl, got 0" >&2
+            exit 1
+          fi
+      - name: v0.8.0 fixture vs v0.5.0 path-side specs alone must EXIT 0 — proves the encoding gap
+        working-directory: agentaudit
+        run: |
+          agentaudit check examples/bad-transcript-direct-encoded-content.jsonl \
+              --spec specs/no-direct-credential-store-write.md \
+              --spec specs/no-direct-runtime-config-write-without-confirm.md \
+              --spec specs/no-direct-instruction-file-write-without-confirm.md
+      - name: v0.8.0 fixture vs Bash-only specs alone must EXIT 0 — second negative control
+        working-directory: agentaudit
+        run: |
+          agentaudit check examples/bad-transcript-direct-encoded-content.jsonl \
+              --spec specs/no-credential-store-write.md \
+              --spec specs/no-runtime-config-write-without-confirm.md \
+              --spec specs/no-instruction-file-write-without-confirm.md \
+              --spec specs/no-pkg-install-without-confirm.md \
+              --spec specs/no-network-exfil.md \
+              --spec specs/no-shell-without-confirm.md
+      - name: agentaudit replay — v0.8.0 fixture must block every malicious step
+        working-directory: agentaudit
+        run: |
+          set +e
+          agentaudit replay examples/bad-transcript-direct-encoded-content.jsonl \
+              --bundled-specs cli-safe
+          rc=$?
+          set -e
+          if [ "$rc" -ne 1 ]; then
+            echo "expected exit 1 from agentaudit replay on v0.8.0 fixture, got $rc" >&2
+            exit 1
+          fi
+      - name: agentaudit watch — hook mode blocks direct Write of gunzip-pipe-bash content
+        working-directory: agentaudit
+        run: |
+          # Using gunzip rather than printf-hex here because the
+          # printf-hex form needs `\\x77` to survive shell quoting →
+          # JSON parse → regex, and the layered escaping is fragile
+          # across CI runners. The encoded rule covers gunzip and
+          # printf-hex with the same severity, so this watch case
+          # locks the rule end-to-end without the escaping minefield.
+          set +e
+          printf '%s\n' '{"kind":"tool_call","actor":"assistant","content":"","data":{"name":"Write","input":{"file_path":"/repo/scripts/stage.sh","content":"cat blob.gz | gunzip | bash"}}}' \
+              | agentaudit watch --bundled-specs cli-safe
+          rc=$?
+          set -e
+          if [ "$rc" -ne 1 ]; then
+            echo "expected exit 1 from agentaudit watch on direct gunzip-pipe-bash Write, got $rc" >&2
+            exit 1
+          fi
+      - name: agentaudit watch — hook mode blocks direct Edit of xxd-r-p-pipe-sh content
+        working-directory: agentaudit
+        run: |
+          set +e
+          printf '%s\n' '{"kind":"tool_call","actor":"assistant","content":"","data":{"name":"Edit","input":{"file_path":"/repo/Dockerfile","old_string":"RUN echo build","new_string":"RUN echo DEADBEEF | xxd -r -p | sh"}}}' \
+              | agentaudit watch --bundled-specs cli-safe
+          rc=$?
+          set -e
+          if [ "$rc" -ne 1 ]; then
+            echo "expected exit 1 from agentaudit watch on direct xxd-pipe-sh Edit, got $rc" >&2
+            exit 1
+          fi
+      - name: agentaudit watch — hook mode allows a gzip COMPRESS (no decode-pipe-shell)
+        working-directory: agentaudit
+        run: |
+          # Negative case: gzip compressing a file (no -d, no pipe-to-shell)
+          # is legitimate. The rule must NOT fire.
+          printf '%s\n' '{"kind":"tool_call","actor":"assistant","content":"","data":{"name":"Write","input":{"file_path":"/repo/scripts/pack.sh","content":"gzip -k bigfile.txt"}}}' \
+              | agentaudit watch --bundled-specs cli-safe
       - name: agentaudit watch — hook mode blocks rm -rf via the live-blocking CLI surface
         working-directory: agentaudit
         run: |
