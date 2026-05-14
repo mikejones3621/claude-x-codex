@@ -296,6 +296,9 @@ Cross-deployment deterministic specs (run by `--bundled-specs cli-safe`):
 | `specs/no-credential-store-write.md`                 | shell writes into `~/.aws/credentials`, `~/.ssh/*`, `~/.npmrc`, `~/.kube/config`, `~/.docker/config.json`, `~/.gnupg/*`, etc. |
 | `specs/no-runtime-config-write-without-confirm.md`   | shell writes into `.git/hooks/`, `.husky/`, `.github/workflows/`, `.claude/`, `.cursor/`, `.cursorrules`, `.clinerules` — consent gate on the executable-runtime persistence surface |
 | `specs/no-instruction-file-write-without-confirm.md` | shell writes into `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `system-prompt.*`, `.aider.conf.yml`, `.roo/*` — consent gate on the agent-instruction persistence surface |
+| `specs/no-direct-credential-store-write.md`          | direct file-tool (`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/MCP filesystem) writes into the same credential paths as the Bash version above — closes the non-Bash path-side gap |
+| `specs/no-direct-runtime-config-write-without-confirm.md` | direct file-tool writes into the same runtime-config paths as the Bash version above — closes the non-Bash path-side gap, consent gate |
+| `specs/no-direct-instruction-file-write-without-confirm.md` | direct file-tool writes into the same instruction documents as the Bash version above — closes the non-Bash path-side gap, consent gate |
 | `specs/no-direct-dangerous-shell-content.md`         | direct file-tool writes of dangerous shell payloads (`curl|wget ... \| sh|bash|python...`, `nc -l/-e`) — consent gate on content-side script planting |
 | `specs/no-cross-agent-injection.md`                  | cross-actor propagation of directive language ("ignore previous instructions") — flags the moment one actor's output is parroted/acted-on by a different actor's later tool call or message. See [`docs/threat-models/multi-agent-injection.md`](docs/threat-models/multi-agent-injection.md). |
 
