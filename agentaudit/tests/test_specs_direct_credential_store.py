@@ -162,6 +162,49 @@ def test_openai_agents_file_write_to_netrc(tmp_path: Path) -> None:
     assert len(v) == 1
 
 
+def test_mcp_filesystem_edit_file_to_aws_credentials(
+    tmp_path: Path,
+) -> None:
+    """Lock that `mcp__filesystem__edit_file` (named in the bundled
+    tools list but no other test exercises it) fires on a credential
+    path. Uses the same `path` arg as the other MCP filesystem tools."""
+    v = _violations(
+        tmp_path,
+        "mcp-edit.jsonl",
+        _tool_call(
+            "mcp__filesystem__edit_file",
+            path="/home/u/.aws/credentials",
+            edits=[{"old_string": "", "new_string": "AKIAEXAMPLE"}],
+        ),
+    )
+    assert len(v) == 1
+    assert v[0].rule_id == "no-direct-credential-store-write"
+
+
+def test_multiedit_fires_once_per_call_regardless_of_edits_count(
+    tmp_path: Path,
+) -> None:
+    """MultiEdit with N edits[] entries fires the rule ONCE per call,
+    not N times. Naming the credential file as the target is the
+    gate; individual hunks are not separately inspected."""
+    v = _violations(
+        tmp_path,
+        "multi-many.jsonl",
+        _tool_call(
+            "MultiEdit",
+            file_path="/home/u/.ssh/authorized_keys",
+            edits=[
+                {"old_string": "a", "new_string": "x"},
+                {"old_string": "b", "new_string": "y"},
+                {"old_string": "c", "new_string": "z"},
+                {"old_string": "d", "new_string": "w"},
+                {"old_string": "e", "new_string": "v"},
+            ],
+        ),
+    )
+    assert len(v) == 1
+
+
 def test_mcp_move_file_overwriting_aws_credentials(
     tmp_path: Path,
 ) -> None:
