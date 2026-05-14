@@ -133,27 +133,75 @@ def _eval_allowlist_tool(rule: Rule, transcript: Transcript) -> Iterable[Violati
 
 
 def _eval_tool_arg_pattern(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
-    tool = rule.params.get("tool")
+    """Regex match against named arg(s) of named tool(s).
+
+    Accepts either:
+      - `tool` + `arg` (single-tool, single-arg form, original shape)
+      - `tools` + `args` (lists; matches any tool in the list against
+        any arg in the list — fires on first hit per event)
+
+    The list form is the way to write a single rule that catches the
+    same harm across multiple file-mutating tools (Edit, Write,
+    MultiEdit, NotebookEdit, MCP filesystem variants, etc.) each of
+    which uses a slightly different arg name (file_path, path,
+    notebook_path, uri). Single + list forms are mutually accepted; if
+    both are present, list takes precedence.
+    """
     pattern = rule.params.get("pattern")
-    if not tool or not pattern:
-        raise ValueError(f"{rule.id}: tool_arg_pattern requires `tool` and `pattern`")
-    arg = rule.params.get("arg")  # optional; if omitted, search whole serialized data
+    if not pattern:
+        raise ValueError(f"{rule.id}: tool_arg_pattern requires `pattern`")
+    tool_names = _coerce_str_list(
+        rule.params.get("tools"), rule.params.get("tool")
+    )
+    if not tool_names:
+        raise ValueError(
+            f"{rule.id}: tool_arg_pattern requires `tool` or `tools`"
+        )
+    arg_names = _coerce_str_list(
+        rule.params.get("args"), rule.params.get("arg")
+    )
     flags = re.IGNORECASE if rule.params.get("ignore_case") else 0
     rx = re.compile(pattern, flags)
-    target = tool.lower()
+    targets = {t.lower() for t in tool_names}
+    norm = rule.params.get("normalize")
     for i, ev in enumerate(transcript.events):
         if ev.kind != EventKind.TOOL_CALL:
             continue
-        if _tool_name(ev).lower() != target:
+        if _tool_name(ev).lower() not in targets:
             continue
-        if arg:
-            haystack = str(_extract_arg(ev, arg))
-        else:
-            haystack = _flatten(ev.data) + " " + ev.content
-        haystack = normalize_for_match(haystack, rule.params.get("normalize"))
-        m = rx.search(haystack)
-        if m:
-            yield _violation(rule, ev, i, evidence=_snippet(haystack, m))
+        haystacks = _arg_haystacks(ev, arg_names)
+        for haystack in haystacks:
+            haystack = normalize_for_match(haystack, norm)
+            m = rx.search(haystack)
+            if m:
+                yield _violation(rule, ev, i, evidence=_snippet(haystack, m))
+                break
+
+
+def _coerce_str_list(plural: Any, singular: Any) -> list[str]:
+    """Accept either the list form OR the singular form OR a comma-
+    separated string. Returns a flat list of strings (empty if neither
+    is set).
+    """
+    if plural:
+        if isinstance(plural, str):
+            return [s.strip() for s in plural.split(",") if s.strip()]
+        return [str(s) for s in plural if str(s).strip()]
+    if singular:
+        if isinstance(singular, str):
+            return [singular]
+        return [str(s) for s in singular if str(s).strip()]
+    return []
+
+
+def _arg_haystacks(ev: Event, arg_names: list[str]) -> list[str]:
+    """Yield one haystack per arg-name, in order. If arg_names is
+    empty, fall back to the original whole-data-plus-content shape so
+    the no-arg case stays backward compatible.
+    """
+    if not arg_names:
+        return [_flatten(ev.data) + " " + ev.content]
+    return [str(_extract_arg(ev, a)) for a in arg_names]
 
 
 def _extract_arg(ev: Event, arg: str) -> Any:
@@ -174,15 +222,28 @@ def _extract_arg(ev: Event, arg: str) -> Any:
 
 
 def _eval_require_consent(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
+    """Gate a tool-call on a prior user-message consent phrase.
+
+    The list forms `tools` and `args` mirror `tool_arg_pattern` — a
+    single rule can gate the same conceptual action across multiple
+    file-mutating tools (Edit / Write / MultiEdit / NotebookEdit) each
+    with its own arg name. The trigger_pattern is matched against any
+    of the named args (fire on first hit); if no args are named, the
+    serialized event data is the haystack.
+    """
     phrases_raw = rule.params.get("consent_phrases") or rule.params.get("phrases")
     if not phrases_raw:
         raise ValueError(f"{rule.id}: require_consent requires `consent_phrases`")
     if isinstance(phrases_raw, str):
         phrases_raw = [phrases_raw]
     phrases = [p.lower() for p in phrases_raw]
-    scoped_tool = rule.params.get("tool")
-    scoped_tool = scoped_tool.lower() if isinstance(scoped_tool, str) else None
-    arg = rule.params.get("arg")
+    scoped_tools = _coerce_str_list(
+        rule.params.get("tools"), rule.params.get("tool")
+    )
+    scoped_targets = {t.lower() for t in scoped_tools}
+    arg_names = _coerce_str_list(
+        rule.params.get("args"), rule.params.get("arg")
+    )
     trigger_pattern = rule.params.get("trigger_pattern")
     trigger_rx = re.compile(trigger_pattern) if trigger_pattern else None
     persist = bool(rule.params.get("persist", False))
@@ -194,13 +255,11 @@ def _eval_require_consent(rule: Rule, transcript: Transcript) -> Iterable[Violat
             if any(p in text for p in phrases):
                 consent_seen = True
         elif ev.kind == EventKind.TOOL_CALL:
-            if scoped_tool and _tool_name(ev).lower() != scoped_tool:
+            if scoped_targets and _tool_name(ev).lower() not in scoped_targets:
                 continue
             if trigger_rx is not None:
-                haystack = (
-                    str(_extract_arg(ev, arg)) if arg else _flatten(ev.data)
-                )
-                if not trigger_rx.search(haystack):
+                haystacks = _arg_haystacks(ev, arg_names)
+                if not any(trigger_rx.search(h) for h in haystacks):
                     continue
             if not consent_seen:
                 yield _violation(
