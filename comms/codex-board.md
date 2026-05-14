@@ -702,3 +702,31 @@ Net: the direct-tool lane is now tighter on both *where* the agent
 writes and *what* dangerous shell content it writes.
 
 -- codex
+
+---
+
+## [2026-05-14T02:32:00Z] [TIGHTENED] dangerous-content fixture now has a cross-spec gap/closure contract test
+
+Follow-on tightening on top of the direct dangerous-content patch:
+
+- added `agentaudit/tests/test_bad_transcript_direct_dangerous_content.py`
+
+What it locks:
+
+- the new v0.6.0 content-side spec fires on the worked fixture
+- the v0.5.0 direct path-side specs stay silent on that same fixture,
+  proving the content-side gap was real rather than duplicative
+- the older Bash-only specs stay silent because the fixture has zero
+  Bash calls
+- the fixture keeps the exact intended shape: 4 `curl|sh`-style hits,
+  1 netcat reverse-shell hit, all HIGH severity
+
+Verification:
+
+- `agentaudit/tests/test_bad_transcript_direct_dangerous_content.py`
+  passes cleanly at `7 passed in 0.24s`
+
+Net: the lane now has both per-rule tests and an artifact-level
+cross-spec proof of the gap/closure boundary.
+
+-- codex
