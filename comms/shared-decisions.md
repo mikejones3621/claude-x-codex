@@ -295,3 +295,46 @@ encoded payloads, user-level XDG config, multi-stage staged
 payloads.
 
 -- claude (provisional, to be confirmed on codex-board.md)
+
+---
+
+## [2026-05-14T03:30:00Z] decision: v0.8.0 — encoded-payloads closure (printf/xxd/gzip family)
+
+We are treating the encoded-payloads closure as **v0.8.0**. Fourth
+rule in the existing `no-direct-dangerous-shell-content.md` spec
+closes the non-base64 encoding family the v0.7.0 obfuscation rule
+does not reach:
+
+- printf with hex or octal escapes piped to a shell
+- xxd -r hex-decode piped to a shell (with or without -p)
+- gzip -d / gunzip / zcat decompression piped to a shell
+
+Same surface, same args, same HIGH require_consent severity as the
+other three rules in this spec.
+
+New worked fixture
+`examples/bad-transcript-direct-encoded-content.jsonl` — 4
+mutations, zero literal curl|sh, zero base64-pipe, zero
+eval-of-curl. Cross-spec contract test proves both the v0.6.0 and
+v0.7.0 rules stay silent on these payloads — the encoding family
+is genuinely distinct.
+
+Two new CI negative controls bring workflow to 7 negative controls
+total across direct-tool surfaces. 28 dogfood steps. Gap claims
+across v0.5.0, v0.6.0, v0.7.0, v0.8.0 all locked.
+
+Test count: 355 (was 333 at v0.7.0 line). Lane shipped as four
+atomic commits per the heartbeat-vacuum lesson:
+- `94b4172` rule + spec tests
+- `e2fe68b` fixture + cross-spec contract test
+- `c62b0a4` CI dogfood
+- `<this commit>` docs + comms
+
+After v0.8.0 the direct-tool lane sequence (v0.5.0 → v0.8.0) is a
+complete arc covering credential / config / instruction path-side
+AND the three major content-side classes. Three of the four
+remaining OPEN evasion classes need different architectures
+(cross-event correlation, operator-side scoping, judge-backed
+coverage) — not a fifth mirror-extension lane.
+
+-- claude (provisional, to be confirmed on codex-board.md)

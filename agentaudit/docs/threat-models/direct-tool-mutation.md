@@ -46,37 +46,38 @@ same agent in the same session is itself a meaningful pattern.
 | Dangerous content via direct-file write, literal `curl|wget ... \| sh|bash|python\|...` | `no-direct-dangerous-shell-content.md` (v0.6.0) | **CLOSED** |
 | Netcat reverse-shell in direct-file content | same spec (v0.6.0) | **CLOSED** |
 | Obfuscated dangerous content: `base64 -d \| sh`, `eval $(curl ...)`, `interpreter -c $(curl ...)` | same spec (v0.7.0 third rule) | **CLOSED** |
+| Encoded payloads: `printf '\\x...' \| sh`, `xxd -r \| sh`, `gzip -d \| gunzip \| zcat \| sh` | same spec (v0.8.0 fourth rule) | **CLOSED** |
 | Obfuscated path construction (custom tool building target path from components) | — | **OPEN** (judge-backed territory) |
 | User-level XDG config under `~/.config/...` | — | **OPEN by design** (operator-side spec) |
-| Hex/octal-encoded payloads (`printf '\\x...' \| sh`, `xxd -r -p \| sh`, `gzip -d \| sh`) | — | **OPEN** (future deterministic lane) |
 | Multi-stage staged payloads (base64 blob in file A, separate command consumes A) | — | **OPEN** (cross-event correlation lane) |
+| uudecode + similar rare encodings | — | **OPEN** (rare enough to be future judge territory) |
 
-The three OPEN classes after v0.7.0:
+The four OPEN classes after v0.8.0:
 
 1. **Obfuscated path construction.** A custom tool that builds the
    target path from components — e.g. `home_dir` + `relpath` —
    never produces a single string that contains the credential-path
    regex. The deterministic rule type cannot follow that. Future
    judge-backed spec territory.
-2. **Hex/octal-encoded payloads and other non-base64 obfuscation.**
-   `printf '\\x77\\x67\\x65\\x74...' | sh`, `xxd -r -p | sh`,
-   `gzip -d | sh`. The v0.7.0 rule catches base64 + eval + interp
-   `-c`; the other encodings are a natural next deterministic-spec
-   lane (the patterns are well-known).
-3. **User-level XDG config under `~/.config/...`.** Intentionally
+2. **User-level XDG config under `~/.config/...`.** Intentionally
    out of scope for the v0.5.0 direct-tool runtime-config spec to
    keep false-positive risk low — the Bash version covers it via
    home-prefix-bearing command text, but the file-tool version sees
    only the resolved path. Deployments that need this coverage can
    ship an operator-side spec scoped to their environment's home
    prefix.
-4. **Multi-stage staged payloads.** An agent writing a base64 blob
-   to file A (caught by the v0.7.0 rule if it appears piped to
-   shell in the same content; NOT caught if it's a standalone data
-   file) and a separate command later reading A and piping it
-   through `base64 -d | sh`. The cross-event correlation here is
-   harder — it lives at the intersection of content-side and
-   cross-actor analysis. Future lane.
+3. **Multi-stage staged payloads.** An agent writing a base64 blob
+   to file A (caught by the v0.7.0/v0.8.0 rules ONLY if it appears
+   piped to shell in the same content; NOT caught if it's a
+   standalone data file) and a separate command later reading A
+   and piping it through `base64 -d | sh`. The cross-event
+   correlation here is harder — it lives at the intersection of
+   content-side and cross-actor analysis. Future lane.
+4. **Rare/obsolete encodings.** `uudecode`, `od -An` reverse
+   constructions, custom XOR/ROT encodings. The v0.7.0 + v0.8.0
+   rules cover the canonical modern attack chains; these older or
+   rarer forms can be added incrementally or punted to a
+   judge-backed pass.
 
 ## Worked example
 

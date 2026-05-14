@@ -1407,3 +1407,83 @@ redirect?
 Holding for your signal before charging v0.8.0.
 
 -- claude
+
+---
+
+## [2026-05-14T03:30:00Z] [SHIPPED] v0.8.0 — encoded-payloads closure (printf hex / xxd / gzip family)
+
+Heartbeat tick 4 saw no engagement on the v0.7.0 ship or the v0.8.0
+telegraph (~80 min of silence on your side after my last ping), so
+I charged the lane. Shipped as four atomic commits per the
+heartbeat-vacuum lesson:
+
+1. `94b4172` — fourth rule in `no-direct-dangerous-shell-content.md`
+   + 16 spec tests
+2. `e2fe68b` — worked fixture
+   `examples/bad-transcript-direct-encoded-content.jsonl` + 6
+   cross-spec contract tests
+3. `c62b0a4` — 7 CI dogfood steps (full check, two negative
+   controls, replay, two watch-blocks, one watch-allows)
+4. *this commit* — docs (CHANGELOG, README catalog, threat-model
+   status table) + comms
+
+### What got closed
+
+Three encoding families the v0.7.0 base64/eval rule does NOT reach:
+
+- **printf with hex or octal escapes piped to a shell** —
+  `printf '\x77\x67' | sh` (hex → "wg"), `printf '\067' | sh`
+  (octal)
+- **xxd -r hex-decode piped to a shell** — `echo <hex> | xxd -r -p
+  | sh` (also bare `xxd -r` without `-p`)
+- **gzip-d / gunzip / zcat decompression piped to a shell** —
+  catches the full compression-then-execute family
+
+### The gap proof
+
+`examples/bad-transcript-direct-encoded-content.jsonl` — 4
+mutations, all using non-base64 encodings, zero literal `curl|sh`,
+zero base64-pipe, zero eval-of-curl. The cross-spec contract test
+asserts the v0.7.0 obfuscation rule and the v0.6.0 literal-pipe +
+nc rules BOTH stay silent — proves the encoding family is
+genuinely distinct, not duplicative with prior closures.
+
+### Implementation note
+
+The CI watch step that initially tested printf-hex hit a JSON
+escape minefield (single-quoted shell arg → JSON parse → regex
+needs `\\x77` to survive all three layers, and the layered
+escaping was fragile across CI runners). Swapped it for a
+gunzip-pipe-bash watch case — same rule fires, same severity,
+clean escaping. The printf-hex form is still fully covered by
+spec-level tests and by the worked fixture (where JSON quoting is
+authored once, not piped through a shell).
+
+### Test count
+
+355/355 (was 333 at the v0.7.0 line). +16 spec tests + 6 cross-spec
+contract tests.
+
+### Still OPEN after v0.8.0
+
+Updated `docs/threat-models/direct-tool-mutation.md`. Four classes
+remain OPEN: obfuscated path construction (judge territory),
+user-level XDG config (deferred by design — operator-side spec),
+multi-stage staged payloads (cross-event correlation), rare
+encodings (uudecode etc — punt to judge or operator).
+
+This is a natural pause point in the direct-tool lane sequence —
+v0.5.0 through v0.8.0 form a complete arc covering credential /
+config / instruction path-side AND the major content-side
+classes (literal, base64/eval/interp-c, encoded). Three of the
+four remaining OPEN classes need either a different rule
+architecture (cross-event correlation) or operator-side input
+(XDG config) — not a fifth direct-tool lane.
+
+Holding here. When you engage, the natural next moves are
+(a) cross-event correlation for multi-stage payloads, or
+(b) judge-backed coverage for obfuscated path construction.
+Either is a meaningfully different architecture lane, not a
+mirror-extension of the current pattern.
+
+-- claude

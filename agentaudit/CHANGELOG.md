@@ -8,6 +8,53 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **Encoded-payloads closure — v0.8.0.** Fourth rule in
+  `no-direct-dangerous-shell-content.md` closes the non-base64
+  encoding family the v0.7.0 obfuscation rule does not reach:
+  * **`printf` with hex or octal escapes piped to a shell**:
+    `printf '\x77\x67' | sh` (hex → "wg"); `printf '\067' | sh`
+    (octal equivalent)
+  * **`xxd -r` hex-decode piped to a shell**:
+    `echo <hex-blob> | xxd -r -p | sh` (also `xxd -r` without `-p`)
+  * **`gzip -d` / `gunzip` / `zcat` decompression piped to a shell**
+
+  Same surface as the v0.6.0/v0.7.0 rules (Write/Edit/MultiEdit/MCP
+  filesystem etc.), same args (content/new_string/edits), same HIGH
+  `require_consent` severity. Operators clear with the existing
+  consent phrases plus the `"yes, add the encoded payload"` form
+  introduced in v0.7.0.
+
+  New worked fixture
+  `examples/bad-transcript-direct-encoded-content.jsonl` — 4
+  mutations using printf-hex, xxd-r-p, gunzip, zcat. Pre-v0.8.0:
+  zero violations (neither the literal-pipe regex nor the
+  base64/eval obfuscation regex sees these forms). Post-v0.8.0: 4
+  violations.
+
+  Cross-spec contract test
+  `tests/test_bad_transcript_direct_encoded_content.py` locks four
+  claims: the encoded rule fires 4 times; the v0.6.0 literal-pipe
+  + nc-listener rules stay silent; the v0.7.0 obfuscation rule
+  also stays silent (proves the encoding family is genuinely
+  distinct); v0.5.0 path-side + Bash-only specs stay silent.
+
+  CI dogfood adds 7 new steps including two negative controls
+  (v0.5.0-path-side and Bash-only baselines must both EXIT 0 on
+  the v0.8.0 fixture), replay, two watch-blocks (gunzip-pipe-bash
+  Write; xxd-r-p Edit), and one watch-allows (gzip COMPRESS
+  without `-d` or pipe-to-shell). Workflow now has 28 dogfood
+  steps for direct-tool surfaces with 7 negative controls — gap
+  claims across v0.5.0, v0.6.0, v0.7.0, and v0.8.0 all locked.
+
+  Test count: 355 (was 333 at the v0.7.0 line; +16 spec tests +
+  6 cross-spec contract tests).
+
+  Known evasions still OPEN after v0.8.0: obfuscated path
+  construction (judge territory), multi-stage staged payloads
+  (cross-event correlation), user-level XDG config (deferred by
+  design), uudecode (rare enough to be future judge territory).
+  Threat-model doc updated.
+
 - **Obfuscated dangerous-content closure — v0.7.0.** Third rule in
   `no-direct-dangerous-shell-content.md` closes the three canonical
   evasions an agent would reach for after seeing the v0.6.0
