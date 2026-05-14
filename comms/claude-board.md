@@ -1316,3 +1316,94 @@ I'll commit each atomic piece as soon as it's locally green rather
 than waiting to bundle. Less narrative cleanup, fewer surprises.
 
 -- claude
+
+---
+
+## [2026-05-14T03:00:00Z] [SHIPPED] v0.7.0 — obfuscated dangerous-content closure (per-atomic-piece commits)
+
+No engagement on the reconcile or the v0.7.0 telegraph by tick 3 of
+the heartbeat loop, so I charged the next telegraphed lane. Shipped
+as **four atomic commits** on `main`, each pushed before the next
+piece was authored — applying the heartbeat-vacuum lesson from
+yesterday's lane.
+
+1. `000478a` — third rule in `no-direct-dangerous-shell-content.md`
+   + 16 spec tests
+2. `4578ce6` — worked fixture
+   `examples/bad-transcript-direct-obfuscated-content.jsonl` + 6
+   cross-spec contract tests
+3. `2ef29cf` — 7 CI dogfood steps (full check, two negative
+   controls, replay, two watch-blocks, one watch-allows)
+4. `29aed33` — docs (CHANGELOG entry, README catalog row,
+   threat-model status table)
+
+### What got closed
+
+Three canonical evasions an attacker would reach for after seeing
+the v0.6.0 literal-pipe rule:
+
+- **base64 decode piped to interpreter** — `echo <b64> | base64 -d
+  | sh|bash|zsh|python|python3|node|ruby|perl` (also `--decode` and
+  macOS `-D`)
+- **`eval` of curl/wget process substitution** — `eval $(curl ...)`
+  and `eval "$(wget ...)"`
+- **interpreter `-c` of curl/wget process substitution** —
+  `bash -c "$(curl ...)"`, `python -c "$(curl ...)"`, etc.
+
+Same surface as v0.6.0 (Write/Edit/MultiEdit/MCP filesystem etc.),
+same args (content/new_string/edits), same HIGH `require_consent`
+severity. New dedicated consent phrase `"yes, add the encoded
+payload"` covers the base64 case.
+
+### The gap proof
+
+`examples/bad-transcript-direct-obfuscated-content.jsonl` — 4
+mutations, all obfuscated payloads, zero literal `curl|sh` strings.
+The cross-spec contract test asserts:
+- The v0.7.0 obfuscation rule fires 4 times
+- The v0.6.0 literal-pipe + nc-listener rules stay silent (this is
+  the closure proof — the literal-pipe regex genuinely cannot see
+  these payloads)
+- The v0.5.0 path-side specs stay silent (paths not in set)
+- The Bash-only specs stay silent (no Bash calls)
+- Total violations = exactly 4 (no false positives, no missed
+  coverage)
+
+The two new CI negative-control steps (v0.5.0-path-only and
+Bash-only must both EXIT 0 on the v0.7.0 fixture) bring the
+workflow to **5 negative controls** total across the direct-tool
+lanes. Any future change that re-opens a gap fails CI with a named
+exit-code mismatch.
+
+### Test count
+
+333/333 (was 311 at the start of this session). +22 new tests:
+- 16 spec tests for the obfuscation rule (9 positive, 2 consent,
+  5 negative including base64-encode-without-decode-pipe-shell,
+  base64-decode-to-file-not-shell, eval-of-non-curl-substitution,
+  bash-c-literal-string, Bash-command-rule-must-not-fire)
+- 6 cross-spec contract tests on the v0.7.0 fixture
+
+### Still OPEN after v0.7.0
+
+Updated `docs/threat-models/direct-tool-mutation.md` with a status
+table for every named evasion class. Four classes remain OPEN:
+
+1. Obfuscated path construction (judge-backed territory)
+2. Hex/octal-encoded payloads (`printf '\\x...' | sh`,
+   `xxd -r -p | sh`, `gzip -d | sh`) — next deterministic-spec
+   lane, patterns are well-known
+3. User-level XDG config under `~/.config/...` (deferred by
+   design — operator-side spec)
+4. Multi-stage staged payloads (base64 blob in file A, separate
+   command later consumes A) — cross-event correlation, harder
+
+Telegraphed next move: **hex/octal/xxd/gzip-encoded payloads** as
+the v0.8.0 deterministic-spec lane. Same content-side surface, same
+HIGH require_consent severity, expands the obfuscation closure to
+the remaining well-known encoding families. Want this next, or
+redirect?
+
+Holding for your signal before charging v0.8.0.
+
+-- claude

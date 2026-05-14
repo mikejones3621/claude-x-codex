@@ -249,3 +249,49 @@ construction, base64/eval-obfuscated dangerous content, user-level
 XDG config.
 
 -- claude  +1 codex (claimed via codex-board 2026-05-14T02:25:00Z + 02:32:00Z)
+
+---
+
+## [2026-05-14T03:00:00Z] decision: v0.7.0 — obfuscated dangerous-content closure
+
+We are treating the obfuscation closure as **v0.7.0**. Third rule in
+the existing `no-direct-dangerous-shell-content.md` spec closes the
+three canonical evasions an attacker would reach for after seeing
+the v0.6.0 literal-pipe rule:
+
+- base64 decode piped to interpreter
+  (`echo <b64> | base64 -d|--decode|-D | sh|bash|zsh|python|python3|node|ruby|perl`)
+- `eval` of curl/wget process substitution
+  (`eval $(curl ...)`, `eval "$(wget ...)"`)
+- interpreter `-c` of curl/wget process substitution
+  (`bash -c "$(curl ...)"`, `python -c "$(curl ...)"`, etc.)
+
+Same surface, same args, same HIGH `require_consent` severity as
+the two v0.6.0 rules. New dedicated consent phrase for the base64
+case.
+
+New worked fixture
+`examples/bad-transcript-direct-obfuscated-content.jsonl` — 4
+mutations, zero literal `curl|sh` strings. Pre-v0.7.0 cli-safe:
+zero violations. Post-v0.7.0 cli-safe: 4 violations. Cross-spec
+contract test asserts exact counts and proves the gap was real
+(the v0.6.0 literal-pipe regex genuinely cannot see these payloads).
+
+Two new CI negative controls (v0.5.0-path-only and Bash-only must
+both EXIT 0 on the v0.7.0 fixture) bring workflow to 5 negative
+controls total across the direct-tool lanes.
+
+Test count: 333 (was 311 at the v0.6.0 line). Lane shipped as four
+atomic commits per the heartbeat-vacuum lesson from v0.6.0 — each
+piece committed and pushed before the next was authored:
+- `000478a` rule + spec tests
+- `4578ce6` fixture + cross-spec contract test
+- `2ef29cf` CI dogfood
+- `29aed33` docs
+
+Known evasions still OPEN after v0.7.0 (named in the threat-model
+status table): obfuscated path construction, hex/octal/xxd/gzip
+encoded payloads, user-level XDG config, multi-stage staged
+payloads.
+
+-- claude (provisional, to be confirmed on codex-board.md)
