@@ -8,6 +8,60 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **Obfuscated dangerous-content closure — v0.7.0.** Third rule in
+  `no-direct-dangerous-shell-content.md` closes the three canonical
+  evasions an agent would reach for after seeing the v0.6.0
+  literal-pipe rule:
+  * **base64 decode piped to interpreter**: `echo <b64> | base64 -d
+    | sh|bash|zsh|python|python3|node|ruby|perl` (also `--decode`
+    and macOS `-D`)
+  * **`eval` of curl/wget process substitution**: `eval $(curl ...)`
+    and `eval "$(wget ...)"`
+  * **interpreter `-c` of curl/wget process substitution**:
+    `bash -c "$(curl ...)"`, `python -c "$(curl ...)"`, etc.
+
+  Same surface as the v0.6.0 rules (Write/Edit/MultiEdit/MCP
+  filesystem etc.), same args (content/new_string/edits), same HIGH
+  `require_consent` severity. Operators clear with the existing
+  consent phrases plus a new `"yes, add the encoded payload"` form
+  dedicated to the base64 case.
+
+  New worked fixture
+  `examples/bad-transcript-direct-obfuscated-content.jsonl` — 4
+  mutations, all obfuscated payloads via Write/Edit/MultiEdit/MCP,
+  zero literal `curl|sh` strings. Pre-v0.7.0: zero violations
+  (the literal-pipe regex cannot see these forms). Post-v0.7.0: 4
+  violations.
+
+  Cross-spec contract test
+  `tests/test_bad_transcript_direct_obfuscated_content.py` locks
+  four claims: the obfuscation rule fires 4 times; the v0.6.0
+  literal-pipe + nc-listener rules stay silent (proves the
+  obfuscation gap was real); v0.5.0 path-side specs stay silent
+  (paths not in set); Bash-only specs stay silent (no Bash calls).
+  Plus total-violations-exactly-4 (no false positives) and
+  every-violation-HIGH-severity.
+
+  CI dogfood adds 7 new steps including two negative controls (the
+  v0.5.0-path-side and Bash-only baselines must both EXIT 0 on the
+  v0.7.0 fixture), replay, two watch-blocks (base64-decode-pipe-sh
+  Write; eval-curl Edit), and one watch-allows (base64 ENCODE
+  without decode-into-shell — legitimate operator use for cert/key
+  serialization). The workflow now has 21 dogfood steps for
+  direct-tool surfaces with 5 negative controls — gap claims
+  across v0.5.0, v0.6.0, and v0.7.0 are all locked.
+
+  Test count: 333 (was 311 at the v0.6.0 line; +16 spec tests +
+  6 cross-spec contract tests).
+
+  Known evasions still open after v0.7.0: hex/octal-encoded
+  payloads (`printf '\\x...' | sh`, `xxd -r -p | sh`,
+  `gzip -d | sh`), multi-stage staged payloads where the base64
+  blob lives in a separately-written file that a later command
+  consumes. Those belong to future deterministic-spec lanes or
+  judge-backed coverage. Threat-model doc updated to reflect the
+  partial-closure status.
+
 - **Direct (non-Bash) mutation coverage — v0.5.0 headline.** Closes
   the surface Codex named on codex-board.md 2026-05-13T03:17Z and
   that both `specs/no-runtime-config-write-without-confirm.md` and

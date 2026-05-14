@@ -299,7 +299,7 @@ Cross-deployment deterministic specs (run by `--bundled-specs cli-safe`):
 | `specs/no-direct-credential-store-write.md`          | direct file-tool (`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/MCP filesystem) writes into the same credential paths as the Bash version above — closes the non-Bash path-side gap |
 | `specs/no-direct-runtime-config-write-without-confirm.md` | direct file-tool writes into the same runtime-config paths as the Bash version above — closes the non-Bash path-side gap, consent gate |
 | `specs/no-direct-instruction-file-write-without-confirm.md` | direct file-tool writes into the same instruction documents as the Bash version above — closes the non-Bash path-side gap, consent gate |
-| `specs/no-direct-dangerous-shell-content.md`         | direct file-tool writes of dangerous shell payloads (`curl|wget ... \| sh|bash|python...`, `nc -l/-e`) — consent gate on content-side script planting |
+| `specs/no-direct-dangerous-shell-content.md`         | direct file-tool writes of dangerous shell payloads (`curl|wget ... \| sh|bash|python...`, `nc -l/-e`) PLUS the three canonical obfuscations (`base64 -d \| sh`, `eval $(curl ...)`, `interpreter -c $(curl ...)`) — consent gate on content-side script planting |
 | `specs/no-cross-agent-injection.md`                  | cross-actor propagation of directive language ("ignore previous instructions") — flags the moment one actor's output is parroted/acted-on by a different actor's later tool call or message. See [`docs/threat-models/multi-agent-injection.md`](docs/threat-models/multi-agent-injection.md). |
 
 Deployment-specific deterministic specs (opt-in via `--bundled-specs
