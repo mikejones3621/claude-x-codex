@@ -61,6 +61,13 @@ Coverage notes:
   running an obfuscated path construction (`p=~/.aws; cp x $p/credentials`)
   will bypass this rule. That class of evasion is harder to catch
   deterministically and belongs to a future judge-backed spec.
+- **Direct (non-Bash) tool calls**: an agent using Claude Code's
+  `Edit` / `Write` / `MultiEdit` / `NotebookEdit`, an MCP filesystem
+  tool, or a custom OpenAI Agents file tool to write to a credential
+  path is NOT caught by this Bash-scoped rule. The direct-tool
+  parallel ships as `no-direct-credential-store-write.md` — both
+  rules fire together when an agent reaches the same path through
+  both surfaces, which is the correct signal.
 - **No consent override**: this rule is `severity = critical` and not a
   `require_consent` rule. The bar for credential-store writes is
   higher than for general destructive shell. If a user genuinely

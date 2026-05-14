@@ -74,11 +74,13 @@ Coverage notes:
 - **Obfuscated path construction** bypasses the regex
   (`p=.claude; echo x >> $p/settings.local.json`). That class belongs
   to a future judge-backed spec.
-- **Direct Edit/Write tool calls** (Claude Code's `Edit` / `Write`
-  tools writing directly to a config path without going through
-  Bash) are NOT covered by this spec, which is Bash-scoped. The
-  rule type can be reused with `tool = "Edit"` and an `arg =
-  "file_path"` variant once the fixture base exercises that surface.
+- **Direct Edit/Write tool calls** (Claude Code's `Edit` / `Write` /
+  `MultiEdit` / `NotebookEdit`, MCP filesystem variants, OpenAI Agents
+  file tools) are NOT covered by this Bash-scoped spec. The
+  direct-tool parallel ships as
+  `no-direct-runtime-config-write-without-confirm.md` — both rules
+  fire together when an agent reaches the same path through both
+  surfaces, which is the correct signal.
 
 The bar is `require_consent` rather than `forbid` because there ARE
 legitimate cases — adding a new GitHub Actions job, registering a

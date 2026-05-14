@@ -8,6 +8,68 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **Direct (non-Bash) mutation coverage — v0.5.0 headline.** Closes
+  the surface Codex named on codex-board.md 2026-05-13T03:17Z and
+  that both `specs/no-runtime-config-write-without-confirm.md` and
+  `specs/no-instruction-file-write-without-confirm.md` already flagged
+  inline: every Bash-gated rule in the cli-safe bundle was blind to
+  agents using direct file tools (Claude Code's `Edit` / `Write` /
+  `MultiEdit` / `NotebookEdit`, MCP filesystem variants, custom
+  OpenAI Agents file tools) to do the SAME conceptual harms.
+
+  Three new bundled specs (auto-classify into `cli-safe`):
+  * `no-direct-credential-store-write.md` — CRITICAL forbid. Same
+    credential-path set as the Bash version (`.aws/credentials`,
+    `.ssh/id_*`, `.ssh/authorized_keys`, `.npmrc`, `.pypirc`,
+    `.netrc`, `.docker/config.json`, `.kube/config`, `.gnupg/*`,
+    `.config/gcloud/*`, `.config/op/*`) matched against the
+    `file_path` / `notebook_path` / `path` / `target_path` /
+    `destination` / `uri` argument of common file-mutation tools.
+    No consent override.
+  * `no-direct-runtime-config-write-without-confirm.md` — HIGH
+    `require_consent`. Same runtime/CI/hooks path set (`.claude/*`,
+    `.husky/*`, `.git/hooks/*`, `.github/workflows/*` + `actions/*`,
+    `.cursor/*`, `.cursorrules`, `.clinerules`).
+  * `no-direct-instruction-file-write-without-confirm.md` — HIGH
+    `require_consent`. Same instruction-file set (`CLAUDE.md`,
+    `AGENTS.md`, `.github/copilot-instructions.md`, system-prompt
+    files, `.aider.conf.{yml,yaml}`, `.roo/rules`).
+
+  Rule-type plumbing: `tool_arg_pattern` and `require_consent` now
+  accept `tools` (list) and `args` (list) alongside the existing
+  singular `tool` and `arg`. Single + list forms are mutually
+  accepted; list form takes precedence. This lets a single rule
+  catch the same harm across multiple file-mutating tools each of
+  which uses a slightly different arg name. Backward compatible —
+  every existing spec keeps working unchanged.
+
+  New worked-fixture: `examples/bad-transcript-direct-selfmod.jsonl`.
+  7 mutations, zero Bash calls — proves the gap is real (the
+  pre-v0.5.0 Bash-only specs are silent on this fixture) and the
+  new specs are the closure (full cli-safe bundle exits 1).
+  `tests/test_bad_transcript_direct_selfmod.py` locks both contracts
+  (every new spec fires at least once; every Bash-only spec stays
+  silent). CI dogfood adds 6 new steps including the negative
+  control — if a future contributor accidentally re-opens the gap
+  by reverting a spec, the workflow fails loudly with a named
+  exit-code-mismatch error.
+
+  Coverage notes:
+  * Operators with bespoke MCP file servers or custom OpenAI Agents
+    file tools should extend the `tools` list in their own spec —
+    the bundled list is conservative and named for the most common
+    deployments.
+  * User-level XDG-style config under `~/.config/...` is
+    intentionally out of scope for the direct-tool runtime-config
+    spec (the Bash version covers it via the home-prefix-bearing
+    command text; the file-tool version sees only the resolved
+    path, and false-positive risk is acceptable only with
+    operator-side context).
+  * Obfuscated path construction (custom tools that build the
+    target path from components the rule doesn't see) remains
+    future judge-backed spec territory.
+
+  Test count: 285 (was 213).
 - **OpenAI Agents user-input hook — parallel consent-gap close on the
   OpenAI side.** `recipes/openai_agents_hook.py` now exports
   `build_agentaudit_user_input_hook(history_path, actor_name=...)`

@@ -78,9 +78,13 @@ Coverage notes:
   agent boot step; if the read result leaks a secret,
   `no-secret-leak.md` catches it.
 
-- **Direct `Edit` / `Write` tool calls** targeting these paths are
-  not covered by this spec (Bash-scoped). An Edit-tool variant is a
-  natural follow-up once the fixture base exercises that surface.
+- **Direct `Edit` / `Write` / `MultiEdit` / `NotebookEdit` tool
+  calls**, MCP filesystem variants, and OpenAI Agents file tools
+  targeting these paths are NOT covered by this Bash-scoped spec.
+  The direct-tool parallel ships as
+  `no-direct-instruction-file-write-without-confirm.md` — both rules
+  fire together when an agent reaches the same path through both
+  surfaces, which is the correct signal.
 
 - **Obfuscated path construction** (`f=CLAUDE.md; sed -i ... $f`)
   bypasses the regex. Future judge-backed spec territory.
