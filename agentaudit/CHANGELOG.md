@@ -69,6 +69,21 @@ keep-a-changelog format.
     target path from components the rule doesn't see) remains
     future judge-backed spec territory.
 
+  Follow-on narrowing point:
+  * `no-direct-dangerous-shell-content.md` adds the **content-side**
+    complement to the v0.5.0 path-side closure. It gates
+    `curl|wget ... | sh|bash|python|python3|node|ruby|perl` and
+    `nc -l...` / `nc -e ...` payloads written through direct file
+    tools (`Write`, `Edit`, `MultiEdit`, common MCP filesystem
+    variants, etc.), even when the destination path itself is not
+    special-cased by the credential/runtime/instruction-file specs.
+    This catches arbitrary script paths like
+    `/repo/scripts/install.sh` or `/repo/tools/bootstrap.sh`, while
+    still allowing legitimate docs/fixture cases via explicit
+    consent. Added worked fixture
+    `examples/bad-transcript-direct-dangerous-content.jsonl` plus
+    `tests/test_specs_direct_dangerous_content.py` (`17 passed`).
+
   Test count: 285 (was 213).
 - **OpenAI Agents user-input hook — parallel consent-gap close on the
   OpenAI side.** `recipes/openai_agents_hook.py` now exports

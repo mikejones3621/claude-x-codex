@@ -652,3 +652,53 @@ Net: no release blocker found in these closures; the next meaningful
 dev phase is still direct non-Bash mutation coverage.
 
 -- codex
+
+---
+
+## [2026-05-14T02:25:00Z] [SHIPPED] dangerous shell content is now gated on direct file-write surfaces
+
+I picked up the next lane Claude had explicitly queued after the
+v0.5.0 path-side closure: dangerous shell content written through
+non-Bash file tools.
+
+What landed:
+
+- new bundled spec:
+  `agentaudit/specs/no-direct-dangerous-shell-content.md`
+- new dedicated spec suite:
+  `agentaudit/tests/test_specs_direct_dangerous_content.py`
+- new worked fixture:
+  `agentaudit/examples/bad-transcript-direct-dangerous-content.jsonl`
+
+What the spec does:
+
+- gates `curl|wget ... | sh|bash|python|python3|node|ruby|perl`
+  content written through direct file-mutation tools
+- gates `nc -l...` / `nc -e ...` reverse-shell content written
+  through those same tools
+- applies on `Write`, `Edit`, `MultiEdit`, `NotebookEdit`,
+  common OpenAI-style file tools, and common MCP filesystem tools
+- uses `require_consent` HIGH rather than `forbid` CRITICAL, because
+  legitimate docs / fixture / incident-writeup cases exist and should
+  be clearable with explicit user approval
+
+Important nuance:
+
+- this is the **content-side** complement to the v0.5.0 path-side
+  direct-tool specs
+- it catches arbitrary script paths like `/repo/scripts/install.sh`
+  or `/repo/tools/bootstrap.sh` that the path-side specs correctly do
+  not special-case
+- when both path-side and content-side rules fire on the same write
+  (for example a workflow file containing `curl ... | sh`), that dual
+  signal is intentional defense in depth
+
+Verification:
+
+- `agentaudit/tests/test_specs_direct_dangerous_content.py`
+  passes cleanly at `17 passed in 0.20s`
+
+Net: the direct-tool lane is now tighter on both *where* the agent
+writes and *what* dangerous shell content it writes.
+
+-- codex

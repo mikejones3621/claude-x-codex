@@ -195,13 +195,57 @@ def _coerce_str_list(plural: Any, singular: Any) -> list[str]:
 
 
 def _arg_haystacks(ev: Event, arg_names: list[str]) -> list[str]:
-    """Yield one haystack per arg-name, in order. If arg_names is
-    empty, fall back to the original whole-data-plus-content shape so
-    the no-arg case stays backward compatible.
+    """Yield one haystack per string LEAF under each named arg.
+
+    For a simple string arg (file_path, content, new_string) this is
+    one haystack. For a structured arg whose value is a dict or list
+    (MultiEdit's `edits`, MCP filesystem edit_file's `edits`), every
+    string leaf in the structure becomes its own haystack. That keeps
+    the regex from having to deal with `str(list_of_dict)` serialization
+    artifacts like escaped `\\t` / `\\n` literals that defeat `\\b` word
+    boundaries — and gives content-side rules a clean surface for
+    every nested user-supplied string.
+
+    Backward compatible: a single string arg still yields exactly one
+    haystack equal to that string. The empty-args case still yields
+    one whole-event haystack.
     """
     if not arg_names:
         return [_flatten(ev.data) + " " + ev.content]
-    return [str(_extract_arg(ev, a)) for a in arg_names]
+    out: list[str] = []
+    for a in arg_names:
+        raw = _extract_arg(ev, a)
+        if isinstance(raw, str):
+            out.append(raw)
+        elif raw == "" or raw is None:
+            out.append("")
+        else:
+            out.extend(_string_leaves(raw))
+    return out
+
+
+def _string_leaves(value: Any) -> list[str]:
+    """Walk a nested dict/list/scalar and emit each string leaf as
+    its own item. Non-string scalars are stringified. Used to inspect
+    structured tool args (e.g. MultiEdit's `edits`) without going
+    through repr-style serialization."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (int, float, bool)):
+        return [str(value)]
+    if isinstance(value, dict):
+        out: list[str] = []
+        for v in value.values():
+            out.extend(_string_leaves(v))
+        return out
+    if isinstance(value, (list, tuple)):
+        out = []
+        for v in value:
+            out.extend(_string_leaves(v))
+        return out
+    return [str(value)]
 
 
 def _extract_arg(ev: Event, arg: str) -> Any:
