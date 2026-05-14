@@ -613,3 +613,251 @@ def test_bash_command_with_obfuscated_payload_is_not_flagged_by_this_spec(
         ),
     )
     assert v == []
+
+
+# =================================================================
+# direct-encoded-dangerous-shell-content-needs-consent (v0.8.0)
+# =================================================================
+# Closes the non-base64 encoding family (printf hex/octal, xxd hex,
+# gzip/gunzip/zcat decompression) piped to a shell. Same surface
+# and severity as the v0.7.0 obfuscation rule.
+
+
+def test_write_printf_hex_pipe_sh_without_consent(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "printf-hex.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="printf '\\x77\\x67\\x65\\x74' | sh",
+        ),
+    )
+    assert len(v) == 1
+    assert (
+        v[0].rule_id
+        == "direct-encoded-dangerous-shell-content-needs-consent"
+    )
+    assert v[0].severity.upper() == "HIGH"
+
+
+def test_write_printf_octal_pipe_bash(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "printf-octal.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="printf '\\067\\155\\145\\166' | bash",
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_write_xxd_reverse_hex_pipe_sh(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "xxd.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="echo deadbeef | xxd -r -p | sh",
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_write_xxd_short_flag_pipe_python(tmp_path: Path) -> None:
+    """xxd -r (without -p) also fires — the -r flag alone is the
+    reverse-decode signal."""
+    v = _violations(
+        tmp_path,
+        "xxd-short.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="echo HEXBLOB | xxd -r | python3",
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_write_gzip_d_pipe_sh(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "gzip.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="echo GZBLOB | gzip -d | sh",
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_write_gunzip_pipe_bash(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "gunzip.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="cat blob.gz | gunzip | bash",
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_write_zcat_pipe_sh(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "zcat.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="zcat compressed.gz | sh",
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_multiedit_with_xxd_buried_in_edits(tmp_path: Path) -> None:
+    """Locks the leaf-haystack fix for the encoded rule: an xxd-r
+    payload buried in one MultiEdit edits[] entry still fires."""
+    v = _violations(
+        tmp_path,
+        "multi-xxd.jsonl",
+        _tool_call(
+            "MultiEdit",
+            file_path="/repo/Makefile",
+            edits=[
+                {"old_string": "a", "new_string": "echo step 1"},
+                {
+                    "old_string": "b",
+                    "new_string": "echo DEADBEEF | xxd -r -p | sh",
+                },
+                {"old_string": "c", "new_string": "echo step 3"},
+            ],
+        ),
+    )
+    assert len(v) == 1
+
+
+def test_mcp_write_file_printf_hex_pipe_sh(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "mcp-printf.jsonl",
+        _tool_call(
+            "mcp__filesystem__write_file",
+            path="/repo/scripts/stage.sh",
+            content="printf '\\x68\\x69' | sh",
+        ),
+    )
+    assert len(v) == 1
+
+
+# ------- consent clears the encoded rule too ----------------------
+
+
+def test_consent_clears_printf_hex(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "consent.jsonl",
+        _user_message("yes, write the script"),
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="printf '\\x77\\x67' | sh",
+        ),
+    )
+    assert v == []
+
+
+def test_encoded_payload_consent_phrase_clears_xxd(tmp_path: Path) -> None:
+    v = _violations(
+        tmp_path,
+        "xxd-consent.jsonl",
+        _user_message("yes, add the encoded payload"),
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/stage.sh",
+            content="echo DEADBEEF | xxd -r -p | sh",
+        ),
+    )
+    assert v == []
+
+
+# ------- negative cases (must NOT trigger) -----------------------
+
+
+def test_printf_plain_text_is_not_flagged(tmp_path: Path) -> None:
+    """`printf 'hello\\n'` (no hex/octal escapes) is benign."""
+    v = _violations(
+        tmp_path,
+        "printf-plain.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/run.sh",
+            content="printf 'hello world\\n' | tee log.txt",
+        ),
+    )
+    assert v == []
+
+
+def test_xxd_encode_to_file_is_not_flagged(tmp_path: Path) -> None:
+    """`xxd file > out.hex` (encode, no -r) is the dump direction —
+    legitimate and not piped to shell."""
+    v = _violations(
+        tmp_path,
+        "xxd-encode.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/dump.sh",
+            content="xxd binary.bin > binary.hex",
+        ),
+    )
+    assert v == []
+
+
+def test_gzip_compress_is_not_flagged(tmp_path: Path) -> None:
+    """`gzip file` (compress, no -d) is benign."""
+    v = _violations(
+        tmp_path,
+        "gzip-compress.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/pack.sh",
+            content="gzip -k bigfile.txt",
+        ),
+    )
+    assert v == []
+
+
+def test_gzip_d_to_file_not_shell_is_not_flagged(tmp_path: Path) -> None:
+    """`gzip -d` decompressing to a file, no shell pipe — benign."""
+    v = _violations(
+        tmp_path,
+        "gzip-d-file.jsonl",
+        _tool_call(
+            "Write",
+            file_path="/repo/scripts/unpack.sh",
+            content="cat blob.gz | gzip -d > out.bin",
+        ),
+    )
+    assert v == []
+
+
+def test_bash_command_with_encoded_payload_is_not_flagged_by_this_spec(
+    tmp_path: Path,
+) -> None:
+    """Bash command containing the same payload belongs to a future
+    no-network-exfil extension. This direct-tool spec must not fire."""
+    v = _violations(
+        tmp_path,
+        "bash-encoded.jsonl",
+        _tool_call(
+            "Bash",
+            command="printf '\\x77\\x67' | sh",
+        ),
+    )
+    assert v == []

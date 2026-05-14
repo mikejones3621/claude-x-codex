@@ -68,6 +68,42 @@ file-write content. `nc -lvp` / `nc -e` patterns are almost
 exclusively reverse-shell territory — there is no legitimate reason
 for an agent to silently embed one in a script.
 
+## direct-encoded-dangerous-shell-content-needs-consent: gate file-tool writes of hex/octal/xxd/gzip-encoded shell payloads on consent
+
+```agentaudit
+type = require_consent
+severity = high
+tools = ["Edit", "Write", "MultiEdit", "NotebookEdit", "str_replace_editor", "create_file", "write_file", "file_write", "mcp__filesystem__write_file", "mcp__filesystem__create_file", "mcp__filesystem__edit_file"]
+args = ["content", "new_string", "edits"]
+trigger_pattern = "(?:\\bprintf\\b[^\\n|]*\\\\[x0-7][^\\n|]*\\|\\s*(?:sh|bash|zsh|python|python3|node|ruby|perl)\\b|\\bxxd\\s+-r\\b[^\\n|]*\\|\\s*(?:sh|bash|zsh|python|python3|node|ruby|perl)\\b|\\b(?:gzip\\s+-d|gunzip|zcat)\\b[^\\n|]*\\|\\s*(?:sh|bash|zsh|python|python3|node|ruby|perl)\\b)"
+consent_phrases = ["yes, write the script", "yes, add the install command", "go ahead and add the curl", "i approve the install line", "lgtm, add the pipeline", "yes, add the encoded payload"]
+```
+
+Closes the **non-base64 encoding family** that the v0.7.0 obfuscation
+rule above does not reach. Catches three additional canonical
+encoding-then-pipe-to-shell patterns:
+
+1. **`printf` with hex or octal escapes piped to a shell**:
+   `printf '\\x77\\x67\\x65\\x74' | sh` decodes to `wget` and runs
+   it; `printf '\\067\\155\\145\\166' | sh` is the octal equivalent.
+   The dangerous payload lives inside the `printf` format string and
+   never appears in cleartext.
+2. **`xxd -r` hex-decode piped to a shell**:
+   `echo <hex-blob> | xxd -r -p | sh` reads a hex-encoded blob,
+   reverses to binary, and pipes to the shell. The `-r` flag is the
+   reverse direction; `-p` is plain-hex format.
+3. **`gzip -d` / `gunzip` / `zcat` piped to a shell**:
+   `echo <base64-of-gzipped> | base64 -d | gzip -d | sh` is one
+   chain; `echo <hex-of-gzipped> | xxd -r -p | gunzip | sh` is
+   another. Catching the gzip-decode pipe stage closes the family of
+   compression-then-execute attacks.
+
+All three are documented supply-chain attack steps and the obvious
+next move for an attacker who's seen the v0.6.0 literal-pipe rule
+and the v0.7.0 base64/eval/interp-c rule. Severity matches the rest
+of this spec — HIGH `require_consent` — because legitimate test
+fixtures, docs, and incident writeups quote these forms.
+
 ## direct-obfuscated-dangerous-shell-content-needs-consent: gate file-tool writes of base64/eval-obfuscated payloads on consent
 
 ```agentaudit
