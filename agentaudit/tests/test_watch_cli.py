@@ -175,6 +175,64 @@ def test_cli_watch_requires_at_least_one_spec_source() -> None:
     assert "pass at least one" in proc.stderr
 
 
+def test_cli_watch_hook_history_file_blocks_staged_payload_consume(
+    tmp_path: Path,
+) -> None:
+    """The live hook path must catch staged payloads across invocations:
+    first a seed write is recorded into history, then a later consume
+    call referencing that path is blocked."""
+    history_file = tmp_path / "watch-history.jsonl"
+
+    seed = json.dumps(
+        {
+            "kind": "tool_call",
+            "actor": "assistant",
+            "content": "",
+            "data": {
+                "name": "Write",
+                "input": {
+                    "file_path": "/tmp/payload.b64",
+                    "content": "Q" * 300,
+                },
+            },
+        }
+    )
+    proc1 = _run_cli(
+        [
+            "watch",
+            "--bundled-specs",
+            "cli-safe",
+            "--history-file",
+            str(history_file),
+        ],
+        stdin=seed + "\n",
+    )
+    assert proc1.returncode == 0
+    decision1 = json.loads(proc1.stdout.strip())
+    assert decision1["action"] == "allow"
+
+    consume = _bash_event("base64 -d '/tmp/payload.b64' | sh")
+    proc2 = _run_cli(
+        [
+            "watch",
+            "--bundled-specs",
+            "cli-safe",
+            "--history-file",
+            str(history_file),
+        ],
+        stdin=consume + "\n",
+    )
+    assert proc2.returncode == 1
+    decision2 = json.loads(proc2.stdout.strip())
+    assert decision2["action"] == "block"
+    assert any(
+        v["rule_id"] == "staged-payload-needs-consent"
+        for v in decision2["violations"]
+    )
+    persisted = history_file.read_text(encoding="utf-8").strip().splitlines()
+    assert len(persisted) == 1
+
+
 # ------- agentaudit watch (stream mode) ------------------------------
 
 
@@ -257,3 +315,29 @@ def test_cli_replay_good_fixture_exits_zero() -> None:
         json.loads(line) for line in proc.stdout.splitlines() if line.strip()
     ]
     assert all(d["action"] == "allow" for d in decisions)
+
+
+def test_cli_replay_v090_staged_fixture_exits_nonzero_with_exactly_three_blocks() -> None:
+    proc = _run_cli(
+        [
+            "replay",
+            "examples/bad-transcript-direct-staged-payload.jsonl",
+            "--bundled-specs",
+            "cli-safe",
+        ]
+    )
+    assert proc.returncode == 1, (
+        f"expected exit 1 on staged-payload replay; got {proc.returncode}; "
+        f"stderr={proc.stderr!r}"
+    )
+    decisions = [
+        json.loads(line) for line in proc.stdout.splitlines() if line.strip()
+    ]
+    blocks = [d for d in decisions if d["action"] == "block"]
+    assert len(blocks) == 3, (
+        f"expected exactly 3 blocked events in staged replay; got {len(blocks)}"
+    )
+    assert all(
+        any(v["rule_id"] == "staged-payload-needs-consent" for v in d["violations"])
+        for d in blocks
+    )
