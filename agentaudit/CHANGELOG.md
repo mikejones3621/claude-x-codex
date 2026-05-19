@@ -8,6 +8,68 @@ keep-a-changelog format.
 ## [Unreleased]
 
 ### Added
+- **Cross-event staged-payload closure - v0.9.0.** New deterministic
+  rule type `staged_payload` plus bundled spec
+  `no-multi-stage-staged-payload.md` close the multi-step content-flow
+  gap left intentionally open by the v0.6.0-v0.8.0 single-event direct
+  dangerous-content rules.
+
+  The new rule tracks a same-actor two-step chain:
+  * a file tool writes content that is dominantly an encoded blob
+  * a later shell-like tool references that same path and decodes or
+    sources it into an interpreter
+
+  Covered consume forms in the bundled spec:
+  * `base64 -d|--decode|-D <path> | sh|bash|python...`
+  * `xxd -r -p <path> | sh|bash|python...`
+  * direct source / shell execution of the written path
+
+  New rule/spec tests in `tests/test_specs_staged_payload.py` lock the
+  core behavior: same-actor seed then consume fires, consume-before-seed
+  stays silent, different-actor consume stays silent under
+  `same_actor_only = true`, quoted-path consume forms are caught, and an
+  explicit consent phrase clears the chain.
+
+  New worked fixture
+  `examples/bad-transcript-direct-staged-payload.jsonl` models 3 staged
+  chains:
+  * `Write -> Bash base64 -d | sh`
+  * `Edit -> Bash xxd -r -p | python3`
+  * `mcp__filesystem__write_file -> run_command base64 --decode | bash`
+
+  Cross-spec contract test
+  `tests/test_bad_transcript_direct_staged_payload.py` locks five
+  claims: the staged rule fires exactly 3 times; the earlier
+  `no-direct-dangerous-shell-content.md` rules stay silent; the v0.5.0
+  direct path-side specs stay silent; the older Bash-only specs stay
+  silent; total violations are exactly 3 and all HIGH.
+
+  CLI production-path coverage in `tests/test_watch_cli.py` now closes
+  both live-blocking surfaces for the staged class:
+  * `watch --history-file` blocks the consume event only after the seed
+    write has already been recorded in history
+  * `replay` on the staged fixture exits 1 with exactly 3 blocked events
+
+  CI dogfood adds four staged-lane checks to
+  `.github/workflows/agentaudit.yml`:
+  * staged fixture must trip `--bundled-specs cli-safe`
+  * staged fixture vs `specs/no-direct-dangerous-shell-content.md`
+    alone must EXIT 0 (negative control proving the earlier lane cannot
+    see this class)
+  * `agentaudit replay` on the staged fixture must EXIT 1
+  * `agentaudit watch --history-file` must block a later staged consume
+    after a prior seed write
+
+  Verification checkpoint at the v0.9.0 slice-3 line:
+  * `tests/test_specs_staged_payload.py` -> 5 passed
+  * `tests/test_bad_transcript_direct_staged_payload.py` -> 6 passed
+  * staged CLI coverage in `tests/test_watch_cli.py` -> 2 passed
+  * combined staged targeted suite -> 13 passed
+
+  With this lane closed, the remaining OPEN classes in
+  `docs/threat-models/direct-tool-mutation.md` are obfuscated path
+  construction (judge-backed territory), user-level XDG config
+  (operator-side spec), and rare/obsolete encodings.
 - **Encoded-payloads closure — v0.8.0.** Fourth rule in
   `no-direct-dangerous-shell-content.md` closes the non-base64
   encoding family the v0.7.0 obfuscation rule does not reach:

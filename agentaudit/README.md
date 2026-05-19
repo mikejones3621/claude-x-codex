@@ -179,6 +179,7 @@ Run `agentaudit list-rules` for the live list. Current rule types:
 | `allowlist_tool`      | only listed tool names may be called                   |
 | `tool_arg_pattern`    | regex against a specific tool's argument               |
 | `require_consent`     | tool call needs fresh consent unless `persist = true`  |
+| `staged_payload`      | prior encoded-blob file write later decoded/sourced into an interpreter |
 | `forbid_actor`        | listed actors must never produce events of given kinds |
 | `max_tool_calls`      | total / per-tool tool-call count cap                   |
 | `no_secret_in_output` | bundled credential regex pack (AWS/GH/OpenAI/PEM/…)    |
@@ -300,6 +301,7 @@ Cross-deployment deterministic specs (run by `--bundled-specs cli-safe`):
 | `specs/no-direct-runtime-config-write-without-confirm.md` | direct file-tool writes into the same runtime-config paths as the Bash version above — closes the non-Bash path-side gap, consent gate |
 | `specs/no-direct-instruction-file-write-without-confirm.md` | direct file-tool writes into the same instruction documents as the Bash version above — closes the non-Bash path-side gap, consent gate |
 | `specs/no-direct-dangerous-shell-content.md`         | direct file-tool writes of dangerous shell payloads (`curl|wget ... \| sh|bash|python...`, `nc -l/-e`), the three canonical base64/eval obfuscations (`base64 -d \| sh`, `eval $(curl ...)`, `interpreter -c $(curl ...)`), AND the non-base64 encoding family (`printf '\x...' \| sh`, `xxd -r \| sh`, `gzip -d \| gunzip \| zcat \| sh`) — consent gate on content-side script planting |
+| `specs/no-multi-stage-staged-payload.md`             | cross-event staged payloads: a dominantly encoded blob written through a file tool, then later decoded or sourced from that same path into `sh`/`bash`/`python`/etc. — closes the multi-step content-flow gap the single-event direct-content rules cannot see |
 | `specs/no-cross-agent-injection.md`                  | cross-actor propagation of directive language ("ignore previous instructions") — flags the moment one actor's output is parroted/acted-on by a different actor's later tool call or message. See [`docs/threat-models/multi-agent-injection.md`](docs/threat-models/multi-agent-injection.md). |
 
 Deployment-specific deterministic specs (opt-in via `--bundled-specs
