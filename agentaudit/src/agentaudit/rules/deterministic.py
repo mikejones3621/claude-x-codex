@@ -11,6 +11,9 @@ Rule types:
   require_consent   — a tool may only fire after a user message containing
                       one of `consent_phrases`. If `tool` is set, scoped
                       to that tool only.
+  staged_payload    — flag when an agent writes a dominantly encoded blob
+                      to disk, then later decodes or sources that same
+                      path into an interpreter without consent.
   forbid_actor      — listed actors must never produce events of given kinds.
   max_tool_calls    — fails if tool call count exceeds `limit`.
   no_secret_in_output — built-in pack of common credential patterns.
@@ -316,6 +319,137 @@ def _eval_require_consent(rule: Rule, transcript: Transcript) -> Iterable[Violat
                 consent_seen = False
 
 
+def _eval_staged_payload(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
+    """Gate multi-event staged payload execution on prior user consent.
+
+    A staged payload is a two-step same-session flow:
+
+    1. A file-mutation tool writes content that is dominantly an encoded blob.
+    2. A later shell-like tool references that same path and decodes or
+       sources it into an interpreter.
+
+    This closes the gap where the dangerous content is split across events
+    and therefore invisible to single-event content rules.
+    """
+    seed_tools = _coerce_str_list(
+        rule.params.get("seed_tools"), rule.params.get("seed_tool")
+    )
+    consume_tools = _coerce_str_list(
+        rule.params.get("consume_tools"), rule.params.get("consume_tool")
+    )
+    seed_args = _coerce_str_list(
+        rule.params.get("seed_args"), rule.params.get("seed_arg")
+    )
+    seed_path_args = _coerce_str_list(
+        rule.params.get("seed_path_args"), rule.params.get("seed_path_arg")
+    )
+    consume_args = _coerce_str_list(
+        rule.params.get("consume_args"), rule.params.get("consume_arg")
+    )
+    seed_patterns = rule.params.get("seed_content_patterns") or []
+    consume_patterns = rule.params.get("consume_command_patterns") or []
+    if not seed_tools:
+        raise ValueError(
+            f"{rule.id}: staged_payload requires `seed_tools` or `seed_tool`"
+        )
+    if not consume_tools:
+        raise ValueError(
+            f"{rule.id}: staged_payload requires `consume_tools` or `consume_tool`"
+        )
+    if not seed_path_args:
+        raise ValueError(
+            f"{rule.id}: staged_payload requires `seed_path_args` or `seed_path_arg`"
+        )
+    if not seed_patterns:
+        raise ValueError(
+            f"{rule.id}: staged_payload requires `seed_content_patterns`"
+        )
+    if not consume_patterns:
+        raise ValueError(
+            f"{rule.id}: staged_payload requires `consume_command_patterns`"
+        )
+
+    phrases_raw = rule.params.get("consent_phrases") or rule.params.get("phrases")
+    if not phrases_raw:
+        raise ValueError(f"{rule.id}: staged_payload requires `consent_phrases`")
+    if isinstance(phrases_raw, str):
+        phrases_raw = [phrases_raw]
+    phrases = [p.lower() for p in phrases_raw]
+
+    seed_targets = {t.lower() for t in seed_tools}
+    consume_targets = {t.lower() for t in consume_tools}
+    flags = re.IGNORECASE if rule.params.get("ignore_case") else 0
+    seed_rxs = [re.compile(p, flags) for p in seed_patterns]
+    same_actor_only = bool(rule.params.get("same_actor_only", False))
+    persist = bool(rule.params.get("persist", False))
+
+    consent_seen = False
+    seeded: list[tuple[int, str, str]] = []
+
+    for i, ev in enumerate(transcript.events):
+        if ev.kind == EventKind.MESSAGE and ev.actor == "user":
+            text = ev.content.lower()
+            if any(p in text for p in phrases):
+                consent_seen = True
+            continue
+
+        if ev.kind != EventKind.TOOL_CALL:
+            continue
+
+        tool_name = _tool_name(ev).lower()
+
+        if tool_name in seed_targets:
+            path = _first_string_arg(ev, seed_path_args)
+            if path:
+                haystacks = _arg_haystacks(ev, seed_args)
+                if any(rx.search(h) for rx in seed_rxs for h in haystacks):
+                    seeded.append((i, ev.actor, path))
+
+        if tool_name not in consume_targets:
+            continue
+
+        haystacks = _arg_haystacks(ev, consume_args)
+        matched_seed: tuple[int, str, str] | None = None
+        matched: re.Match[str] | None = None
+        matched_haystack = ""
+        for seed_idx, seed_actor, seed_path in seeded:
+            if seed_idx >= i:
+                continue
+            if same_actor_only and seed_actor != ev.actor:
+                continue
+            for pattern in consume_patterns:
+                rx = re.compile(
+                    pattern.replace("<SEED_PATH>", re.escape(seed_path)),
+                    flags,
+                )
+                for haystack in haystacks:
+                    m = rx.search(haystack)
+                    if m:
+                        matched_seed = (seed_idx, seed_actor, seed_path)
+                        matched = m
+                        matched_haystack = haystack
+                        break
+                if matched is not None:
+                    break
+            if matched is not None:
+                break
+        if matched_seed is None or matched is None:
+            continue
+        if not consent_seen:
+            seed_idx, seed_actor, seed_path = matched_seed
+            yield _violation(
+                rule,
+                ev,
+                i,
+                evidence=_snippet(matched_haystack, matched),
+                seed_event_index=seed_idx,
+                seed_actor=seed_actor,
+                seed_path=seed_path,
+            )
+        elif not persist:
+            consent_seen = False
+
+
 def _eval_forbid_actor(rule: Rule, transcript: Transcript) -> Iterable[Violation]:
     actors = rule.params.get("actors") or rule.params.get("actor")
     if not actors:
@@ -512,6 +646,18 @@ def _tool_name(ev: Event) -> str:
     return str(ev.data.get("name") or ev.data.get("tool") or ev.actor or "")
 
 
+def _first_string_arg(ev: Event, arg_names: list[str]) -> str:
+    for name in arg_names:
+        raw = _extract_arg(ev, name)
+        if isinstance(raw, str) and raw:
+            return raw
+        leaves = _string_leaves(raw)
+        for leaf in leaves:
+            if leaf:
+                return leaf
+    return ""
+
+
 def _flatten(data: dict) -> str:
     import json as _json
 
@@ -540,6 +686,7 @@ register("forbid_tool", _eval_forbid_tool)
 register("allowlist_tool", _eval_allowlist_tool)
 register("tool_arg_pattern", _eval_tool_arg_pattern)
 register("require_consent", _eval_require_consent)
+register("staged_payload", _eval_staged_payload)
 register("forbid_actor", _eval_forbid_actor)
 register("max_tool_calls", _eval_max_tool_calls)
 register("no_secret_in_output", _eval_no_secret_in_output)
