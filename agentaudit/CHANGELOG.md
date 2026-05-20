@@ -7,6 +7,21 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-19
+
+This release consolidates the v0.3.0 -> v0.9.0 work train (bundled
+defensive specs, normalize layer, Anthropic adapter, the v0.5.0
+direct-tool gap closure, and the v0.6.0 -> v0.9.0 dangerous-content
+closure arc) into a single tagged release. Prior to this tag, all of
+that work lived under "Unreleased"; no version between 0.2.0 and 0.9.0
+was ever published. 0.9.0 is the first release to ship that lineage as
+an installable artifact. Threat-model status as of this tag: 5 of 8
+named evasion classes in `docs/threat-models/direct-tool-mutation.md`
+are CLOSED deterministically; the remaining 3 are judge-backed
+territory (obfuscated path construction), operator-side by design
+(user-level XDG config), and deferred (uudecode / rare encodings).
+Tests: 368 passing. CI dogfood: 32 steps + 8 negative controls.
+
 ### Added
 - **Cross-event staged-payload closure - v0.9.0.** New deterministic
   rule type `staged_payload` plus bundled spec
