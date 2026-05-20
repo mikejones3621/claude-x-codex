@@ -63,7 +63,11 @@ The three OPEN classes after v0.9.0:
    home-prefix-bearing command text, but the file-tool version sees
    only the resolved path. Deployments that need this coverage can
    ship an operator-side spec scoped to their environment's home
-   prefix.
+   prefix. **Closure shape**: see
+   `recipes/operator-xdg-config-guard.md` for the operator-side
+   spec template, recommended XDG prefixes (systemd/user,
+   autostart, gcloud, op, Code/User, etc.), and the explicit
+   "OPEN by design — recipe is the permanent closure" rationale.
 3. **Rare/obsolete encodings.** `uudecode`, `od -An` reverse
    constructions, custom XOR/ROT encodings. The v0.7.0 + v0.8.0 +
    v0.9.0 rules cover the canonical modern attack chains; these older
