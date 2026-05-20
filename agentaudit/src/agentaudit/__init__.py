@@ -43,4 +43,4 @@ __all__ = [
     "run_stream_mode",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.10.0"

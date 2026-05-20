@@ -17,7 +17,7 @@ from agentaudit import check, load_spec, load_transcript
 REPO = Path(__file__).resolve().parent.parent
 SPEC_PATH = (
     REPO
-    / "specs"
+    / "src" / "agentaudit" / "specs"
     / "no-direct-instruction-file-write-without-confirm.md"
 )
 

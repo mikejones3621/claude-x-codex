@@ -22,7 +22,7 @@ from agentaudit import check, load_spec, load_transcript
 
 
 REPO = Path(__file__).resolve().parent.parent
-SPECS = REPO / "specs"
+SPECS = REPO / "src" / "agentaudit" / "specs"
 FIXTURE = (
     REPO / "examples" / "bad-transcript-direct-dangerous-content.jsonl"
 )
@@ -51,6 +51,8 @@ def _violations_per_spec() -> dict[str, list]:
     out: dict[str, list] = {}
     for spec_file in sorted(SPECS.glob("*.md")):
         spec = load_spec(spec_file)
+        if any(rule.type == "judge" for rule in spec.rules):
+            continue
         out[spec_file.name] = check(tx, spec)
     return out
 

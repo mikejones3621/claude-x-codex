@@ -29,7 +29,7 @@ from agentaudit import (
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SPECS = REPO_ROOT / "specs"
+SPECS = REPO_ROOT / "src" / "agentaudit" / "specs"
 
 
 # ------- run_ingest in-process unit tests ---------------------------

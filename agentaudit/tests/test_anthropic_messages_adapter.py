@@ -12,7 +12,7 @@ from agentaudit.cli import _auto_load
 
 REPO = Path(__file__).resolve().parent.parent
 EXAMPLES = REPO / "examples"
-SPECS = REPO / "specs"
+SPECS = REPO / "src" / "agentaudit" / "specs"
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:

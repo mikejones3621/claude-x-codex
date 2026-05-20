@@ -17,7 +17,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 RECIPE_PATH = REPO / "recipes" / "openai_agents_hook.py"
-SPECS = REPO / "specs"
+SPECS = REPO / "src" / "agentaudit" / "specs"
 
 
 @pytest.fixture(scope="module")

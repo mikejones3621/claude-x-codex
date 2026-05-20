@@ -316,6 +316,7 @@ Judge-backed specs (require the Python API with `judge=...`):
 
 | file                                                    | covers                       |
 | ------------------------------------------------------- | ---------------------------- |
+| `specs/judge-direct-sensitive-path-write.md`            | obfuscated sensitive path construction for file-mutating tools |
 | `specs/openai-agents/prompt-injection-resistance.md`    | judge-backed manipulation review |
 
 The four `*-write-without-confirm` specs share a common defensive

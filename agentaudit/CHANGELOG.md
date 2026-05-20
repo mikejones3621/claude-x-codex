@@ -7,6 +7,50 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-19
+
+This release combines two changes:
+
+1. **Bundled-specs are now actually packaged in the wheel.** v0.9.0
+   shipped with `specs/` outside the package source tree, so the wheel
+   contained zero spec files and any user who ran
+   `pip install agentaudit && agentaudit check --bundled-specs cli-safe`
+   got `error: pass at least one --spec or choose --bundled-specs.`
+   This release moves `agentaudit/specs/` to
+   `agentaudit/src/agentaudit/specs/` and adds them via
+   `[tool.setuptools.package-data]`. The wheel now ships 18 bundled
+   specs. **v0.9.0 should be considered withdrawn; use 0.10.0 instead.**
+
+2. **Judge-backed obfuscated path construction coverage** (the v0.10.0
+   threat-model lane). Closes direct-tool-mutation OPEN class #1 on the
+   spec surface via a Python-API-only judge-backed rule.
+
+### Added
+- **Judge-backed obfuscated path construction coverage.** Added
+  `specs/judge-direct-sensitive-path-write.md`, a Python-API-only
+  judge-backed spec for file-mutating tool calls whose sensitive
+  destination path is assembled from multiple args or templates rather
+  than appearing literally in a `file_path`-style field.
+
+  Added worked fixture
+  `examples/bad-transcript-obfuscated-path-construction.jsonl`
+  covering three evasive shapes:
+  * `template + values` assembling `~/.aws/credentials`
+  * `home_dir + subpath` assembling `~/.ssh/authorized_keys`
+  * `target_dir + file_name` assembling `CLAUDE.md`
+
+  Added deterministic stub-judge coverage in
+  `tests/test_specs_judge_path_construction.py` and
+  `tests/test_bad_transcript_judge_path_construction.py`, locking two
+  contracts:
+  * the new judge-backed spec flags all three obfuscated writes
+  * the v0.5.0 deterministic direct-path specs stay silent on the same
+    fixture, proving the gap is real rather than duplicative
+
+  Extended `examples/judge_demo.py` so the no-API-key demo now shows
+  both the existing prompt-injection judge lane and the new path-
+  construction lane end to end.
+
 ## [0.9.0] - 2026-05-19
 
 This release consolidates the v0.3.0 -> v0.9.0 work train (bundled

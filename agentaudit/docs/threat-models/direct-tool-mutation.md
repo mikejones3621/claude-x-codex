@@ -46,18 +46,13 @@ agent in the same session is itself a meaningful pattern.
 | Obfuscated dangerous content: `base64 -d \| sh`, `eval $(curl ...)`, `interpreter -c $(curl ...)` | same spec (v0.7.0 third rule) | **CLOSED** |
 | Encoded payloads: `printf '\\x...' \| sh`, `xxd -r \| sh`, `gzip -d \| gunzip \| zcat \| sh` | same spec (v0.8.0 fourth rule) | **CLOSED** |
 | Multi-stage staged payloads (base64/hex blob in file A, separate command consumes A) | `no-multi-stage-staged-payload.md` (v0.9.0) | **CLOSED** |
-| Obfuscated path construction (custom tool building target path from components) | — | **OPEN** (judge-backed territory) |
+| Obfuscated path construction (custom tool building target path from components) | `judge-direct-sensitive-path-write.md` (Python API judge lane) | **CLOSED on the spec side** |
 | User-level XDG config under `~/.config/...` | — | **OPEN by design** (operator-side spec) |
 | `uudecode` and similar rare encodings | — | **OPEN** (rare enough to be future judge territory) |
 
-The three OPEN classes after v0.9.0:
+The two remaining OPEN classes after the judge-backed path lane:
 
-1. **Obfuscated path construction.** A custom tool that builds the
-   target path from components, for example `home_dir` + `relpath`,
-   never produces a single string that contains the credential-path
-   regex. The deterministic rule type cannot follow that. Future
-   judge-backed spec territory.
-2. **User-level XDG config under `~/.config/...`.** Intentionally out
+1. **User-level XDG config under `~/.config/...`.** Intentionally out
    of scope for the v0.5.0 direct-tool runtime-config spec to keep
    false-positive risk low. The Bash version covers it via
    home-prefix-bearing command text, but the file-tool version sees
@@ -68,11 +63,24 @@ The three OPEN classes after v0.9.0:
    spec template, recommended XDG prefixes (systemd/user,
    autostart, gcloud, op, Code/User, etc.), and the explicit
    "OPEN by design — recipe is the permanent closure" rationale.
-3. **Rare/obsolete encodings.** `uudecode`, `od -An` reverse
+2. **Rare/obsolete encodings.** `uudecode`, `od -An` reverse
    constructions, custom XOR/ROT encodings. The v0.7.0 + v0.8.0 +
    v0.9.0 rules cover the canonical modern attack chains; these older
    or rarer forms can be added incrementally or punted to a
    judge-backed pass.
+
+## Judge-backed path construction closure
+
+`specs/judge-direct-sensitive-path-write.md` closes the largest
+remaining direct-tool path-side evasion on the spec surface: tool calls
+that assemble a sensitive destination from pieces the deterministic
+`tool_arg_pattern` rules never see as one contiguous path string.
+
+This closure is intentionally **judge-backed** and therefore Python-API
+only at runtime. The CLI still fails cleanly on judge rules by design.
+That means the deterministic rules remain the shell-runnable floor,
+while the new judge spec gives operators a production path for the
+harder semantic class once they provide a `judge=` callable.
 
 ## v0.9.0 closure
 

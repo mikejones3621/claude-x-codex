@@ -14,7 +14,7 @@ from agentaudit import check, load_spec, load_transcript
 
 
 REPO = Path(__file__).resolve().parent.parent
-SPEC_PATH = REPO / "specs" / "no-direct-dangerous-shell-content.md"
+SPEC_PATH = REPO / "src" / "agentaudit" / "specs" / "no-direct-dangerous-shell-content.md"
 
 
 def _tool_call(name: str, **input_) -> str:

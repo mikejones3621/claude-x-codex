@@ -19,7 +19,7 @@ from agentaudit import (
 
 
 REPO = Path(__file__).resolve().parent.parent
-SPECS = REPO / "specs"
+SPECS = REPO / "src" / "agentaudit" / "specs"
 
 
 def _tool_call(name: str, **inputs) -> Event:
@@ -345,7 +345,7 @@ def test_watch_fires_cross_actor_propagation_in_hook_mode(tmp_path: Path) -> Non
     test runs cross_actor_propagation through hook mode end-to-end
     with the history-file path persisting the originator event so the
     later propagator hook sees it."""
-    spec = load_spec(REPO / "specs" / "no-cross-agent-injection.md")
+    spec = load_spec(REPO / "src" / "agentaudit" / "specs" / "no-cross-agent-injection.md")
     history_file = tmp_path / "h.jsonl"
 
     # First invocation: the tool_result event with the injected directive.

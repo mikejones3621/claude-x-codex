@@ -15,15 +15,17 @@ from agentaudit.adapters import load_with_adapter
 
 
 REPO = Path(__file__).resolve().parent.parent
-SPECS = REPO / "specs"
+SPECS = REPO / "src" / "agentaudit" / "specs"
 EXAMPLES = REPO / "examples"
 
 
 def _check_all(transcript_path: Path) -> list:
     transcript = load_transcript(transcript_path)
     out = []
+    def noop_judge(rule, tx):
+        return []
     for spec_file in sorted(SPECS.glob("*.md")):
-        out.extend(check(transcript, load_spec(spec_file)))
+        out.extend(check(transcript, load_spec(spec_file), judge=noop_judge))
     out.sort(key=lambda v: (-v.severity_rank, v.event_index, v.rule_id))
     return out
 

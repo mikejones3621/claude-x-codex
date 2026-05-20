@@ -62,7 +62,7 @@ def test_check_with_judge_backed_spec_fails_cleanly(capsys) -> None:
             "--adapter",
             "openai_agents",
             "--spec",
-            str(repo / "specs" / "openai-agents" / "prompt-injection-resistance.md"),
+            str(repo / "src" / "agentaudit" / "specs" / "openai-agents" / "prompt-injection-resistance.md"),
         ]
     )
     captured = capsys.readouterr()
