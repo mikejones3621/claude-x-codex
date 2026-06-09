@@ -7,6 +7,34 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
+### Added
+- **`agentaudit install-hook claude-code`** scaffolds the Claude Code
+  hook scripts (`.claude/hooks/pre-tool-use.sh` +
+  `user-prompt-submit.sh`), marks them executable, and either prints the
+  `.claude/settings.json` hooks block or merges it in idempotently with
+  `--write-settings`. Removes the copy/chmod/hand-edit-settings dance
+  from the recipe. The scripts are embedded in the package
+  (`agentaudit.hooks`), so this works from an installed wheel without a
+  repo checkout.
+- **`agentaudit list-specs --describe`** prints a human-readable summary
+  of each bundled spec's rules, so you can tell what a spec checks
+  without opening the file.
+- **Intent-based bundled-spec aliases**: `--bundled-specs recommended`
+  (= `cli-safe`) and `--bundled-specs strict` (= `all`), so newcomers do
+  not have to learn the internal taxonomy to get started.
+
+### Changed
+- **`check` and `replay` now default to the recommended (`cli-safe`)
+  spec set** when neither `--spec` nor `--bundled-specs` is given,
+  emitting a one-line note to stderr. The first run now does something
+  useful instead of erroring out. (`watch` still requires an explicit
+  selection, since it is a production gate.)
+- **Clean error messages instead of tracebacks** for the common
+  mistakes: a missing transcript, a missing/typo'd `--spec` path, a
+  directory passed where a file was expected, and unparseable input now
+  print `error: …` to stderr and exit `2`. A missing spec name also
+  suggests the closest bundled spec ("did you mean: …?").
+
 ## [0.10.0] - 2026-05-19
 
 This release combines two changes:

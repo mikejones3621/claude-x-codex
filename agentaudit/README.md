@@ -45,17 +45,28 @@ in [`recipes/`](recipes/):
 ```bash
 pip install -e .
 
-# audit the bundled examples
-agentaudit check examples/bad-transcript.jsonl \
-    --spec no-secret-leak.md \
-    --spec no-shell-without-confirm.md \
-    --spec no-network-exfil.md \
-    --spec no-pii-exfil.md
+# simplest: with no specs, `check` runs the recommended set
+agentaudit check examples/bad-transcript.jsonl
 
-# or run the whole bundled deterministic set in one shot
+# choose a spec group explicitly (`recommended` is an alias for `cli-safe`)
 agentaudit check examples/openai-agents-wrapped-good.json \
     --adapter openai_agents \
-    --bundled-specs cli-safe
+    --bundled-specs recommended
+
+# or pin individual specs
+agentaudit check examples/bad-transcript.jsonl \
+    --spec no-secret-leak.md \
+    --spec no-shell-without-confirm.md
+
+# discover what the bundled specs actually check
+agentaudit list-specs --describe
+```
+
+Want it gating a live Claude Code session? Scaffold the hooks in one command:
+
+```bash
+agentaudit install-hook claude-code                    # writes .claude/hooks/*, prints settings snippet
+agentaudit install-hook claude-code --write-settings   # also merges into .claude/settings.json
 ```
 
 Run `agentaudit list-specs` to see the bundled spec paths available in
