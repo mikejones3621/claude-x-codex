@@ -48,6 +48,10 @@ jobs:
 
   publish:
     needs: build
+    # Only publish for a published GitHub Release. A manual
+    # workflow_dispatch run builds the artifacts (a dry run) but never
+    # reaches PyPI, so it cannot bypass the release-tag/version guard.
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
