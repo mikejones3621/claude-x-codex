@@ -7,7 +7,27 @@ keep-a-changelog format.
 
 ## [Unreleased]
 
+### Fixed
+- **`agentaudit` now imports on Python 3.9 again.** The `Judge` type
+  alias in `checker.py` used a PEP 604 `Violation | JudgeFinding` union
+  in a runtime (import-time) position, which raises `TypeError` on
+  Python 3.9 even though the package advertises `requires-python =
+  ">=3.9"`. Switched to `typing.Union`. CI now runs the full 3.9–3.13
+  matrix plus an import smoke test, so this can't regress silently.
+
 ### Added
+- **Quality gates in CI**: a `lint` job runs `ruff` (lint + import
+  order) and `mypy` (the package already ships `py.typed`; now the
+  types are actually checked). Added `ruff`/`mypy` to the `dev` extra
+  and their config to `pyproject.toml`.
+- **`watch --max-history N`** loads only the most recent N events from
+  the history file in hook mode, bounding per-call evaluation cost on
+  long sessions. Default is unbounded (unchanged behavior).
+- **Packaging metadata**: `[project.urls]` (Homepage / Repository /
+  Changelog / Issues) and per-version Python + `Typing :: Typed`
+  classifiers, so the published PyPI page is complete.
+- **`SECURITY.md`** with a private disclosure path and in/out-of-scope
+  guidance, and CI/Python/license badges on the README.
 - **`agentaudit install-hook claude-code`** scaffolds the Claude Code
   hook scripts (`.claude/hooks/pre-tool-use.sh` +
   `user-prompt-submit.sh`), marks them executable, and either prints the

@@ -17,10 +17,11 @@ The schema is intentionally small. An event has:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 class EventKind(str, Enum):
@@ -40,7 +41,7 @@ class Event:
     id: str | None = None
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "Event":
+    def from_dict(cls, raw: dict[str, Any]) -> Event:
         kind = EventKind(raw["kind"])
         return cls(
             kind=kind,
@@ -77,7 +78,7 @@ class Transcript:
     @classmethod
     def from_events(
         cls, events: Iterable[Event], meta: dict[str, Any] | None = None
-    ) -> "Transcript":
+    ) -> Transcript:
         return cls(events=list(events), meta=dict(meta or {}))
 
 

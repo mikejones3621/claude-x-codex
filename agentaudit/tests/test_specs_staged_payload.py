@@ -11,7 +11,6 @@ from pathlib import Path
 
 from agentaudit import Event, EventKind, Transcript, check, load_spec
 
-
 REPO = Path(__file__).resolve().parent.parent
 SPEC_PATH = REPO / "src" / "agentaudit" / "specs" / "no-multi-stage-staged-payload.md"
 BASE64_BLOB = "Q" * 300

@@ -16,11 +16,28 @@ defaults:
     working-directory: agentaudit
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Ruff (lint + import order)
+        run: ruff check src tests
+      - name: Mypy (type check)
+        run: mypy
+
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        # Covers the full requires-python range (>=3.9). 3.9 in
+        # particular guards against PEP 604 `|` unions in runtime
+        # positions, which raise TypeError on import there.
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,6 +47,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run pytest
         run: pytest -q
+      - name: Import smoke test
+        run: python -c "import agentaudit; from agentaudit import checker, cli, watch, hooks; print(agentaudit.__version__)"
 
   dogfood:
     runs-on: ubuntu-latest

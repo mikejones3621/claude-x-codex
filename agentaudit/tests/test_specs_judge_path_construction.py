@@ -6,7 +6,6 @@ from pathlib import Path
 
 from agentaudit import Event, EventKind, JudgeFinding, Transcript, check, load_spec
 
-
 REPO = Path(__file__).resolve().parent.parent
 SPEC_PATH = REPO / "src" / "agentaudit" / "specs" / "judge-direct-sensitive-path-write.md"
 

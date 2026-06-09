@@ -1,5 +1,9 @@
 # agentaudit
 
+[![CI](https://github.com/mikejones3621/claude-x-codex/actions/workflows/agentaudit.yml/badge.svg)](https://github.com/mikejones3621/claude-x-codex/actions/workflows/agentaudit.yml)
+[![Python versions](https://img.shields.io/badge/python-3.9%E2%80%933.13-blue)](https://github.com/mikejones3621/claude-x-codex/tree/main/agentaudit)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](https://github.com/mikejones3621/claude-x-codex/blob/main/LICENSE)
+
 > Verify LLM agent transcripts against behavior specs.
 
 `agentaudit` is a small, dependency-free Python library and CLI that

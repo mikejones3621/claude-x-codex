@@ -16,8 +16,7 @@ from agentaudit import (
     render_json,
     render_text,
 )
-from agentaudit.adapters import load_with_adapter, list_adapters
-
+from agentaudit.adapters import list_adapters, load_with_adapter
 
 # Intent-based aliases for the bundled-spec groups, so a newcomer does
 # not have to learn the internal taxonomy to get started. `recommended`
@@ -178,6 +177,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "also append blocked events to the history file. Default is to "
             "drop blocked events on the floor, since by definition the "
             "runtime did not execute them."
+        ),
+    )
+    w.add_argument(
+        "--max-history",
+        type=int,
+        default=None,
+        help=(
+            "in hook mode, only load the most recent N events from the "
+            "history file. Bounds per-call evaluation cost on long sessions; "
+            "trade-off is that cross-event rules cannot see context older "
+            "than the window. Default: unbounded."
         ),
     )
     w.set_defaults(_handler=_cmd_watch)
@@ -345,6 +355,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
             log_file=args.log_file,
             block_severity=args.block_severity,
             persist_blocked_events=args.persist_blocked_events,
+            max_history=args.max_history,
         )
     return run_stream_mode(
         sys.stdin,
@@ -502,13 +513,15 @@ def _load_transcript(args: argparse.Namespace):
             return load_with_adapter(args.adapter, path)
         return _auto_load(Path(path))
     except FileNotFoundError:
-        raise _UserError(f"transcript not found: {path}")
+        raise _UserError(f"transcript not found: {path}") from None
     except IsADirectoryError:
-        raise _UserError(f"transcript path is a directory, not a file: {path}")
+        raise _UserError(f"transcript path is a directory, not a file: {path}") from None
     except OSError as exc:
-        raise _UserError(f"cannot read transcript {path!r}: {exc.strerror or exc}")
+        raise _UserError(
+            f"cannot read transcript {path!r}: {exc.strerror or exc}"
+        ) from None
     except ValueError as exc:
-        raise _UserError(f"could not parse transcript {path!r}: {exc}")
+        raise _UserError(f"could not parse transcript {path!r}: {exc}") from None
 
 
 def _load_specs(spec_paths: list[str]):
@@ -520,13 +533,17 @@ def _load_specs(spec_paths: list[str]):
         try:
             specs.append(load_spec(resolved))
         except FileNotFoundError:
-            raise _UserError(_spec_not_found_message(spec_path))
+            raise _UserError(_spec_not_found_message(spec_path)) from None
         except IsADirectoryError:
-            raise _UserError(f"spec path is a directory, not a file: {spec_path}")
+            raise _UserError(
+                f"spec path is a directory, not a file: {spec_path}"
+            ) from None
         except OSError as exc:
-            raise _UserError(f"cannot read spec {spec_path!r}: {exc.strerror or exc}")
+            raise _UserError(
+                f"cannot read spec {spec_path!r}: {exc.strerror or exc}"
+            ) from None
         except ValueError as exc:
-            raise _UserError(f"invalid spec {spec_path!r}: {exc}")
+            raise _UserError(f"invalid spec {spec_path!r}: {exc}") from None
     return specs
 
 

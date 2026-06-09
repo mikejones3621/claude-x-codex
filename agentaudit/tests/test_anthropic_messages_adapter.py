@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from agentaudit import check, load_spec
 from agentaudit.adapters import load_with_adapter
 from agentaudit.cli import _auto_load

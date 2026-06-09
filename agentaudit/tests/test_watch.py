@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 
 from agentaudit import (
-    Decision,
     Event,
     EventKind,
     evaluate_event,
@@ -16,10 +15,21 @@ from agentaudit import (
     run_hook_mode,
     run_stream_mode,
 )
-
+from agentaudit.watch import append_history
 
 REPO = Path(__file__).resolve().parent.parent
 SPECS = REPO / "src" / "agentaudit" / "specs"
+
+
+def test_read_history_max_events_returns_only_the_window(tmp_path: Path) -> None:
+    hist = tmp_path / "h.jsonl"
+    for i in range(5):
+        append_history(hist, Event(kind=EventKind.MESSAGE, actor="user", content=f"m{i}"))
+    assert [e.content for e in read_history(hist)] == ["m0", "m1", "m2", "m3", "m4"]
+    assert [e.content for e in read_history(hist, max_events=2)] == ["m3", "m4"]
+    # Non-positive / None windows mean "all".
+    assert len(read_history(hist, max_events=0)) == 5
+    assert len(read_history(hist, max_events=None)) == 5
 
 
 def _tool_call(name: str, **inputs) -> Event:

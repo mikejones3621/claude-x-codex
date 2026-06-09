@@ -30,7 +30,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 _RULE_HEADER = re.compile(r"^##\s+([a-z0-9][a-z0-9_\-]*)\s*:\s*(.+?)\s*$", re.MULTILINE)
 _FENCE = re.compile(r"```agentaudit\s*\n(.*?)\n```", re.DOTALL)
 

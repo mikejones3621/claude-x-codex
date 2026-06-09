@@ -7,7 +7,7 @@ surfaces such as `agentaudit list-rules`.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from agentaudit.checker import Violation
 from agentaudit.rules import register

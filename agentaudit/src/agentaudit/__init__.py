@@ -1,5 +1,7 @@
 """agentaudit — verify LLM agent transcripts against behavior specs."""
 
+from agentaudit.checker import JudgeFinding, Violation, check
+from agentaudit.report import render_json, render_text
 from agentaudit.schema import (
     Event,
     EventKind,
@@ -8,8 +10,6 @@ from agentaudit.schema import (
     load_transcript_jsonl,
 )
 from agentaudit.spec import Rule, Spec, load_spec
-from agentaudit.checker import JudgeFinding, Violation, check
-from agentaudit.report import render_text, render_json
 from agentaudit.watch import (
     Decision,
     evaluate_event,

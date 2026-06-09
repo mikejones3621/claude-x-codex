@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from agentaudit import (
@@ -14,7 +13,6 @@ from agentaudit import (
     load_spec,
     load_transcript,
 )
-
 
 REPO = Path(__file__).resolve().parent.parent
 SPECS = REPO / "src" / "agentaudit" / "specs"

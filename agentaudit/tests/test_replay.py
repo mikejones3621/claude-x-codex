@@ -16,7 +16,6 @@ from agentaudit import (
     run_replay,
 )
 
-
 REPO = Path(__file__).resolve().parent.parent
 SPECS = REPO / "src" / "agentaudit" / "specs"
 EXAMPLES = REPO / "examples"

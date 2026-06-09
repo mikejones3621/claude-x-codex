@@ -13,7 +13,6 @@ from agentaudit import (
 )
 from agentaudit.adapters import load_with_adapter
 
-
 REPO = Path(__file__).resolve().parent.parent
 SPECS = REPO / "src" / "agentaudit" / "specs"
 EXAMPLES = REPO / "examples"
@@ -60,8 +59,8 @@ def test_severity_sort_puts_critical_first() -> None:
 
 
 def test_unknown_rule_type_raises() -> None:
-    from agentaudit.spec import parse_spec
     from agentaudit.schema import Transcript
+    from agentaudit.spec import parse_spec
 
     spec = parse_spec(
         "## bad-rule: bogus type\n\n```agentaudit\ntype = does_not_exist\n```\n"
