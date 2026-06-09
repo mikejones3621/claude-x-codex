@@ -6,7 +6,6 @@ from pathlib import Path
 
 from agentaudit import check, load_spec, load_transcript
 
-
 REPO = Path(__file__).resolve().parent.parent
 SPEC_PATH = REPO / "src" / "agentaudit" / "specs" / "no-pkg-install-without-confirm.md"
 

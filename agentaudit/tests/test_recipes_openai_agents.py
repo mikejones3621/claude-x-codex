@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO = Path(__file__).resolve().parent.parent
 RECIPE_PATH = REPO / "recipes" / "openai_agents_hook.py"
 SPECS = REPO / "src" / "agentaudit" / "specs"
@@ -227,12 +226,14 @@ def test_hook_uses_custom_actor_name_for_multi_agent_routing(
     spec_path = SPECS / "no-cross-agent-injection.md"
     history = tmp_path / "shared.jsonl"
 
-    # planner emits a directive
+    # planner emits a directive — building the hook with a custom actor
+    # name must succeed.
     planner_hook = hook_module.build_agentaudit_hook(
         spec_paths=[spec_path],
         history_path=history,
         actor_name="agent:planner",
     )
+    assert planner_hook is not None
     # The planner's "tool call" is benign — the directive is in the
     # *content* of a message it produced. To exercise cross-actor we
     # need to seed history with a directive-bearing message manually.

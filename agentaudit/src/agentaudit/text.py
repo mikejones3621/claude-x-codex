@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import unicodedata
 
-
 _ZERO_WIDTH = "​‌‍﻿"
 
 # Cyrillic capitals/lowercase whose glyphs are visually indistinguishable

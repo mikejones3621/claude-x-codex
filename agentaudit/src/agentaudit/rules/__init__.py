@@ -7,7 +7,8 @@ Evaluators are registered by `type` string. Users can add their own via
 
 from __future__ import annotations
 
-from typing import Callable, Iterable, TYPE_CHECKING
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from agentaudit.checker import Violation

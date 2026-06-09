@@ -1,5 +1,9 @@
 # agentaudit
 
+[![CI](https://github.com/mikejones3621/claude-x-codex/actions/workflows/agentaudit.yml/badge.svg)](https://github.com/mikejones3621/claude-x-codex/actions/workflows/agentaudit.yml)
+[![Python versions](https://img.shields.io/badge/python-3.9%E2%80%933.13-blue)](https://github.com/mikejones3621/claude-x-codex/tree/main/agentaudit)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](https://github.com/mikejones3621/claude-x-codex/blob/main/LICENSE)
+
 > Verify LLM agent transcripts against behavior specs.
 
 `agentaudit` is a small, dependency-free Python library and CLI that
@@ -45,17 +49,28 @@ in [`recipes/`](recipes/):
 ```bash
 pip install -e .
 
-# audit the bundled examples
-agentaudit check examples/bad-transcript.jsonl \
-    --spec no-secret-leak.md \
-    --spec no-shell-without-confirm.md \
-    --spec no-network-exfil.md \
-    --spec no-pii-exfil.md
+# simplest: with no specs, `check` runs the recommended set
+agentaudit check examples/bad-transcript.jsonl
 
-# or run the whole bundled deterministic set in one shot
+# choose a spec group explicitly (`recommended` is an alias for `cli-safe`)
 agentaudit check examples/openai-agents-wrapped-good.json \
     --adapter openai_agents \
-    --bundled-specs cli-safe
+    --bundled-specs recommended
+
+# or pin individual specs
+agentaudit check examples/bad-transcript.jsonl \
+    --spec no-secret-leak.md \
+    --spec no-shell-without-confirm.md
+
+# discover what the bundled specs actually check
+agentaudit list-specs --describe
+```
+
+Want it gating a live Claude Code session? Scaffold the hooks in one command:
+
+```bash
+agentaudit install-hook claude-code                    # writes .claude/hooks/*, prints settings snippet
+agentaudit install-hook claude-code --write-settings   # also merges into .claude/settings.json
 ```
 
 Run `agentaudit list-specs` to see the bundled spec paths available in

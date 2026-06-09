@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import sys
 from pathlib import Path
@@ -15,7 +16,28 @@ from agentaudit import (
     render_json,
     render_text,
 )
-from agentaudit.adapters import load_with_adapter, list_adapters
+from agentaudit.adapters import list_adapters, load_with_adapter
+
+# Intent-based aliases for the bundled-spec groups, so a newcomer does
+# not have to learn the internal taxonomy to get started. `recommended`
+# is the safe starting point; `strict` turns everything on.
+_GROUP_ALIASES = {"recommended": "cli-safe", "strict": "all"}
+_BUNDLED_CHOICES = (
+    "recommended",
+    "strict",
+    "all",
+    "cli-safe",
+    "deterministic",
+    "deployment-specific",
+)
+
+
+class _UserError(Exception):
+    """A user-facing error, reported as `error: <msg>` with exit code 2.
+
+    Used to turn expected failures (missing files, typo'd spec names,
+    unparseable transcripts) into clean messages instead of tracebacks.
+    """
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -35,12 +57,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     chk.add_argument(
         "--bundled-specs",
-        choices=("all", "cli-safe", "deterministic", "deployment-specific"),
+        choices=_BUNDLED_CHOICES,
         help=(
-            "include bundled specs by group: `cli-safe` runs only cross-deployment "
-            "deterministic specs, `deployment-specific` runs only deployment-specific "
-            "deterministic specs, `deterministic` includes both deterministic groups, "
-            "and `all` also includes judge-backed specs"
+            "include bundled specs by group. Start with `recommended` "
+            "(alias for `cli-safe`): cross-deployment deterministic specs "
+            "that are safe to run anywhere. `strict` (alias for `all`) "
+            "also includes judge-backed specs. With no `--spec` and no "
+            "`--bundled-specs`, `check` runs the `recommended` set."
         ),
     )
     chk.add_argument(
@@ -80,6 +103,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="include bundled spec classification details",
     )
     ls.add_argument(
+        "--describe",
+        action="store_true",
+        help="show a human-readable summary of the rules in each spec",
+    )
+    ls.add_argument(
         "--cli-safe",
         action="store_true",
         help="show only bundled specs that are cross-deployment safe to run directly in the CLI",
@@ -105,7 +133,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     w.add_argument(
         "--bundled-specs",
-        choices=("all", "cli-safe", "deterministic", "deployment-specific"),
+        choices=_BUNDLED_CHOICES,
         help="include bundled specs by group (same semantics as `agentaudit check`)",
     )
     w.add_argument(
@@ -151,6 +179,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "runtime did not execute them."
         ),
     )
+    w.add_argument(
+        "--max-history",
+        type=int,
+        default=None,
+        help=(
+            "in hook mode, only load the most recent N events from the "
+            "history file. Bounds per-call evaluation cost on long sessions; "
+            "trade-off is that cross-event rules cannot see context older "
+            "than the window. Default: unbounded."
+        ),
+    )
     w.set_defaults(_handler=_cmd_watch)
 
     rp = sub.add_parser(
@@ -168,7 +207,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     rp.add_argument(
         "--bundled-specs",
-        choices=("all", "cli-safe", "deterministic", "deployment-specific"),
+        choices=_BUNDLED_CHOICES,
         help="include bundled specs by group (same semantics as `agentaudit check`)",
     )
     rp.add_argument(
@@ -215,26 +254,60 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ig.set_defaults(_handler=_cmd_ingest)
 
+    ih = sub.add_parser(
+        "install-hook",
+        help="scaffold agent-runtime hook scripts into a project",
+    )
+    ih.add_argument(
+        "runtime",
+        choices=("claude-code",),
+        help="which agent runtime to scaffold hooks for",
+    )
+    ih.add_argument(
+        "--dir",
+        type=Path,
+        default=Path("."),
+        help="project directory to install into (default: current directory)",
+    )
+    ih.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite hook scripts that already exist",
+    )
+    ih.add_argument(
+        "--write-settings",
+        action="store_true",
+        help=(
+            "merge the hooks block into .claude/settings.json. Without this "
+            "flag the snippet is printed for you to paste."
+        ),
+    )
+    ih.set_defaults(_handler=_cmd_install_hook)
+
     return p
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
     try:
-        if args.adapter:
-            transcript = load_with_adapter(args.adapter, args.transcript)
-        else:
-            transcript = _auto_load(Path(args.transcript))
-        all_violations = []
-        spec_paths = _resolve_requested_specs(args)
+        transcript = _load_transcript(args)
+        applied_default = not (args.spec or args.bundled_specs)
+        spec_paths = _resolve_requested_specs(args, default_group="cli-safe")
         if not spec_paths:
+            raise _UserError("pass at least one `--spec` or choose `--bundled-specs`.")
+        if applied_default:
             sys.stderr.write(
-                "error: pass at least one `--spec` or choose `--bundled-specs`.\n"
+                "note: no specs given; running the recommended `cli-safe` set "
+                "(pass --spec or --bundled-specs to choose).\n"
             )
-            return 2
-        for spec_path in spec_paths:
-            spec = load_spec(_resolve_spec_path(spec_path))
+        specs = _load_specs(spec_paths)
+    except _UserError as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+
+    all_violations = []
+    try:
+        for spec in specs:
             all_violations.extend(check(transcript, spec))
-        all_violations.sort(key=lambda v: (-v.severity_rank, v.event_index, v.rule_id))
     except ValueError as exc:
         msg = str(exc)
         if "judge callable is required" in msg:
@@ -245,6 +318,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
             return 2
         sys.stderr.write(f"error: {msg}\n")
         return 2
+    all_violations.sort(key=lambda v: (-v.severity_rank, v.event_index, v.rule_id))
 
     if args.format == "json":
         sys.stdout.write(render_json(all_violations))
@@ -266,12 +340,9 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     try:
         spec_paths = _resolve_requested_specs(args)
         if not spec_paths:
-            sys.stderr.write(
-                "error: pass at least one `--spec` or choose `--bundled-specs`.\n"
-            )
-            return 2
-        specs = [load_spec(_resolve_spec_path(p)) for p in spec_paths]
-    except ValueError as exc:
+            raise _UserError("pass at least one `--spec` or choose `--bundled-specs`.")
+        specs = _load_specs(spec_paths)
+    except _UserError as exc:
         sys.stderr.write(f"error: {exc}\n")
         return 2
 
@@ -284,6 +355,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
             log_file=args.log_file,
             block_severity=args.block_severity,
             persist_blocked_events=args.persist_blocked_events,
+            max_history=args.max_history,
         )
     return run_stream_mode(
         sys.stdin,
@@ -313,18 +385,18 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     from agentaudit.watch import run_replay
 
     try:
-        if args.adapter:
-            transcript = load_with_adapter(args.adapter, args.transcript)
-        else:
-            transcript = _auto_load(Path(args.transcript))
-        spec_paths = _resolve_requested_specs(args)
+        transcript = _load_transcript(args)
+        applied_default = not (args.spec or args.bundled_specs)
+        spec_paths = _resolve_requested_specs(args, default_group="cli-safe")
         if not spec_paths:
+            raise _UserError("pass at least one `--spec` or choose `--bundled-specs`.")
+        if applied_default:
             sys.stderr.write(
-                "error: pass at least one `--spec` or choose `--bundled-specs`.\n"
+                "note: no specs given; replaying against the recommended `cli-safe` set "
+                "(pass --spec or --bundled-specs to choose).\n"
             )
-            return 2
-        specs = [load_spec(_resolve_spec_path(p)) for p in spec_paths]
-    except ValueError as exc:
+        specs = _load_specs(spec_paths)
+    except _UserError as exc:
         sys.stderr.write(f"error: {exc}\n")
         return 2
 
@@ -362,11 +434,49 @@ def _cmd_list_specs(args: argparse.Namespace) -> int:
             continue
         if args.deployment_specific and classification != "deterministic+deployment-specific":
             continue
-        if args.verbose:
+        if args.describe:
+            print(spec_path)
+            print(f"    {_describe_spec(_resolve_spec_path(spec_path))}")
+        elif args.verbose:
             print(f"{spec_path}\t{classification}")
         else:
             print(spec_path)
     return 0
+
+
+def _cmd_install_hook(args: argparse.Namespace) -> int:
+    from agentaudit.hooks import install_claude_code_hooks
+
+    if args.runtime != "claude-code":
+        sys.stderr.write(f"error: unsupported runtime: {args.runtime}\n")
+        return 2
+    try:
+        result = install_claude_code_hooks(
+            args.dir, force=args.force, write_settings=args.write_settings
+        )
+    except OSError as exc:
+        sys.stderr.write(f"error: {exc.strerror or exc}\n")
+        return 2
+
+    for path in result.written:
+        print(f"wrote {path}")
+    for path in result.skipped:
+        print(f"skipped {path} (already exists; pass --force to overwrite)")
+
+    if result.settings_written:
+        print(f"merged hooks into {result.settings_path}")
+    else:
+        print()
+        print(f"Add this to {result.settings_path} (or re-run with --write-settings):")
+        print(result.settings_snippet)
+    return 0
+
+
+def _describe_spec(spec_path: str | Path) -> str:
+    spec = load_spec(spec_path)
+    if not spec.rules:
+        return "(no rules)"
+    return "; ".join(rule.name for rule in spec.rules)
 
 
 def _resolve_spec_path(spec_path: str | Path) -> str | Path:
@@ -381,25 +491,104 @@ def _resolve_spec_path(spec_path: str | Path) -> str | Path:
     candidate = specs_dir / p
     if candidate.exists():
         return candidate
+
+    # The bundled directory is itself named `specs/`, so a `specs/`-prefixed
+    # reference (e.g. `specs/no-secret-leak.md`) is a natural thing to type
+    # and is how the in-repo recipes refer to specs. Resolve it against the
+    # bundled dir by dropping the leading `specs/` component.
+    if p.parts and p.parts[0] == "specs":
+        nested = specs_dir / Path(*p.parts[1:])
+        if nested.exists():
+            return nested
+
     return spec_path
 
 
-def _resolve_requested_specs(args: argparse.Namespace) -> list[str]:
+def _load_transcript(args: argparse.Namespace):
+    """Load the transcript named on the command line, mapping IO/parse
+    failures to clean `_UserError`s instead of raw tracebacks."""
+    path = args.transcript
+    try:
+        if getattr(args, "adapter", None):
+            return load_with_adapter(args.adapter, path)
+        return _auto_load(Path(path))
+    except FileNotFoundError:
+        raise _UserError(f"transcript not found: {path}") from None
+    except IsADirectoryError:
+        raise _UserError(f"transcript path is a directory, not a file: {path}") from None
+    except OSError as exc:
+        raise _UserError(
+            f"cannot read transcript {path!r}: {exc.strerror or exc}"
+        ) from None
+    except ValueError as exc:
+        raise _UserError(f"could not parse transcript {path!r}: {exc}") from None
+
+
+def _load_specs(spec_paths: list[str]):
+    """Load each requested spec, mapping IO/parse failures to clean
+    `_UserError`s (with a did-you-mean hint for missing spec names)."""
+    specs = []
+    for spec_path in spec_paths:
+        resolved = _resolve_spec_path(spec_path)
+        try:
+            specs.append(load_spec(resolved))
+        except FileNotFoundError:
+            raise _UserError(_spec_not_found_message(spec_path)) from None
+        except IsADirectoryError:
+            raise _UserError(
+                f"spec path is a directory, not a file: {spec_path}"
+            ) from None
+        except OSError as exc:
+            raise _UserError(
+                f"cannot read spec {spec_path!r}: {exc.strerror or exc}"
+            ) from None
+        except ValueError as exc:
+            raise _UserError(f"invalid spec {spec_path!r}: {exc}") from None
+    return specs
+
+
+def _spec_not_found_message(spec_path: str) -> str:
+    lines = [f"spec not found: {spec_path}"]
+    suggestion = _closest_bundled_spec(str(spec_path))
+    if suggestion:
+        lines.append(f"  did you mean: {suggestion}?")
+    lines.append("  run `agentaudit list-specs` to see the bundled specs.")
+    return "\n".join(lines)
+
+
+def _closest_bundled_spec(name: str) -> str | None:
+    candidates = _list_bundled_specs()
+    if not candidates:
+        return None
+    matches = difflib.get_close_matches(name, candidates, n=1, cutoff=0.6)
+    if matches:
+        return matches[0]
+    base = Path(name).name
+    by_base = {Path(c).name: c for c in candidates}
+    base_matches = difflib.get_close_matches(base, list(by_base), n=1, cutoff=0.6)
+    if base_matches:
+        return by_base[base_matches[0]]
+    return None
+
+
+def _resolve_requested_specs(
+    args: argparse.Namespace, default_group: str | None = None
+) -> list[str]:
     spec_paths = list(args.spec or [])
-    if not args.bundled_specs:
+    group = args.bundled_specs
+    if group is None and not spec_paths and default_group is not None:
+        group = default_group
+    if group is None:
         return _dedupe_spec_paths(spec_paths)
-    if args.bundled_specs == "all":
+    group = _GROUP_ALIASES.get(group, group)
+    if group == "all":
         spec_paths.extend(_list_bundled_specs())
-        return _dedupe_spec_paths(spec_paths)
-    if args.bundled_specs == "deployment-specific":
+    elif group == "deployment-specific":
         spec_paths.extend(_list_deployment_specific_specs())
-        return _dedupe_spec_paths(spec_paths)
-    if args.bundled_specs == "deterministic":
+    elif group == "deterministic":
         spec_paths.extend(_list_deterministic_specs())
-        return _dedupe_spec_paths(spec_paths)
-    if args.bundled_specs == "cli-safe":
+    elif group == "cli-safe":
         spec_paths.extend(_list_cli_safe_specs())
-        return _dedupe_spec_paths(spec_paths)
     return _dedupe_spec_paths(spec_paths)
 
 
@@ -578,6 +767,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_replay(args)
     if args.cmd == "ingest":
         return _cmd_ingest(args)
+    if args.cmd == "install-hook":
+        return _cmd_install_hook(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2  # unreachable
 

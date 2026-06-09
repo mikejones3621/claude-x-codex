@@ -31,15 +31,14 @@ decision rather than silently allowing the event through.
 from __future__ import annotations
 
 import json
-import sys
-from dataclasses import dataclass, field, asdict
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, TextIO
+from typing import TextIO
 
 from agentaudit.checker import Violation, check
 from agentaudit.schema import Event, EventKind, Transcript
 from agentaudit.spec import Spec
-
 
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
@@ -112,11 +111,17 @@ def evaluate_event(
     )
 
 
-def read_history(history_file: Path | None) -> list[Event]:
+def read_history(
+    history_file: Path | None, *, max_events: int | None = None
+) -> list[Event]:
     """Read prior events from a JSONL history file (one Event per line).
 
     Returns an empty list if `history_file` is None or the file does
-    not yet exist.
+    not yet exist. When `max_events` is a positive int, only the most
+    recent `max_events` events are returned — this bounds the per-event
+    rule-evaluation cost of the live watcher on long sessions, at the
+    cost of cross-event rules (`require_consent`, `staged_payload`) not
+    seeing context older than the window.
     """
     if history_file is None or not history_file.exists():
         return []
@@ -134,6 +139,8 @@ def read_history(history_file: Path | None) -> list[Event]:
                 f"{history_file}:{lineno}: invalid JSON in history: {exc}"
             ) from exc
         events.append(Event.from_dict(raw))
+    if max_events is not None and max_events > 0:
+        return events[-max_events:]
     return events
 
 
@@ -176,6 +183,7 @@ def run_hook_mode(
     log_file: Path | None = None,
     block_severity: str = "high",
     persist_blocked_events: bool = False,
+    max_history: int | None = None,
 ) -> int:
     """Hook-mode entry point: one event in, one decision out.
 
@@ -196,7 +204,7 @@ def run_hook_mode(
             append_log(log_file, decision)
         return 2
 
-    history = read_history(history_file)
+    history = read_history(history_file, max_events=max_history)
     decision = evaluate_event(
         history, event, specs, block_severity=block_severity
     )

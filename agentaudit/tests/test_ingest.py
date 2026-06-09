@@ -16,17 +16,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 from agentaudit import (
-    Event,
     EventKind,
     load_spec,
     read_history,
     run_hook_mode,
     run_ingest,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SPECS = REPO_ROOT / "src" / "agentaudit" / "specs"

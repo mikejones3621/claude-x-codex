@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Callable, Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable, Union
 
 from agentaudit import rules as _rules_pkg
 from agentaudit.schema import Transcript
@@ -40,7 +41,10 @@ class JudgeFinding:
     severity: str | None = None
 
 
-Judge = Callable[[Rule, Transcript], Iterable[Violation | JudgeFinding | dict[str, Any]]]
+# NB: this alias is evaluated at import time, so the member types must use
+# typing.Union rather than PEP 604 `|` — `Violation | JudgeFinding` raises
+# TypeError on Python 3.9 (which this package still supports).
+Judge = Callable[[Rule, Transcript], Iterable[Union[Violation, JudgeFinding, dict[str, Any]]]]
 
 
 def check(

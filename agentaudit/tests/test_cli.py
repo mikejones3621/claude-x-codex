@@ -5,7 +5,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agentaudit.cli import _auto_load, main
+from agentaudit.cli import _auto_load, _resolve_spec_path, main
+
+
+def test_resolve_spec_path_accepts_specs_prefix() -> None:
+    # The bundled dir is named `specs/`, so `specs/<name>` should resolve
+    # to the same file as the bare `<name>` (this is how the in-repo
+    # recipes and CI reference bundled specs).
+    bare = Path(_resolve_spec_path("no-secret-leak.md"))
+    prefixed = Path(_resolve_spec_path("specs/no-secret-leak.md"))
+    assert bare.exists()
+    assert prefixed == bare
+    nested = Path(_resolve_spec_path("specs/openai-agents/tool-allowlist.md"))
+    assert nested.exists()
+    assert nested.name == "tool-allowlist.md"
 
 
 def test_list_adapters_prints_registered_adapters(capsys) -> None:
@@ -70,17 +83,110 @@ def test_check_with_judge_backed_spec_fails_cleanly(capsys) -> None:
     assert "judge-backed rules are only supported via the Python API" in captured.err
 
 
-def test_check_requires_spec_or_bundled_specs(capsys) -> None:
+def test_check_with_no_specs_defaults_to_recommended_set(capsys) -> None:
     repo = Path(__file__).resolve().parent.parent
     rc = main(
         [
             "check",
             str(repo / "examples" / "good-transcript.jsonl"),
+            "--format",
+            "json",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "recommended `cli-safe` set" in captured.err
+    payload = json.loads(captured.out)
+    assert payload["ok"] is True
+
+
+def test_check_missing_transcript_reports_clean_error(capsys) -> None:
+    rc = main(["check", "does-not-exist.jsonl", "--bundled-specs", "cli-safe"])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "transcript not found: does-not-exist.jsonl" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_check_missing_spec_reports_clean_error_with_suggestion(capsys) -> None:
+    repo = Path(__file__).resolve().parent.parent
+    rc = main(
+        [
+            "check",
+            str(repo / "examples" / "good-transcript.jsonl"),
+            "--spec",
+            "no-secret-leek.md",
         ]
     )
     captured = capsys.readouterr()
     assert rc == 2
+    assert "spec not found: no-secret-leek.md" in captured.err
+    assert "did you mean: no-secret-leak.md?" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_check_recommended_alias_matches_cli_safe(capsys) -> None:
+    repo = Path(__file__).resolve().parent.parent
+    args = [
+        "check",
+        str(repo / "examples" / "bad-transcript.jsonl"),
+        "--format",
+        "json",
+    ]
+    rc_alias = main(args + ["--bundled-specs", "recommended"])
+    alias_payload = json.loads(capsys.readouterr().out)
+    rc_canonical = main(args + ["--bundled-specs", "cli-safe"])
+    canonical_payload = json.loads(capsys.readouterr().out)
+    assert rc_alias == rc_canonical == 1
+    assert alias_payload["summary"] == canonical_payload["summary"]
+
+
+def test_watch_still_requires_spec_or_bundled_specs(capsys) -> None:
+    rc = main(["watch"])
+    captured = capsys.readouterr()
+    assert rc == 2
     assert "pass at least one `--spec` or choose `--bundled-specs`" in captured.err
+
+
+def test_list_specs_describe_shows_rule_names(capsys) -> None:
+    rc = main(["list-specs", "--describe"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "no-secret-leak.md" in out
+    # The human-readable rule name is surfaced, indented under the file.
+    assert "never expose credentials in user-visible output" in out
+
+
+def test_install_hook_claude_code_scaffolds_scripts(tmp_path: Path, capsys) -> None:
+    rc = main(["install-hook", "claude-code", "--dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    pre = tmp_path / ".claude" / "hooks" / "pre-tool-use.sh"
+    ups = tmp_path / ".claude" / "hooks" / "user-prompt-submit.sh"
+    assert pre.exists() and ups.exists()
+    import os
+
+    assert os.access(pre, os.X_OK)
+    # Snippet is printed when --write-settings is not passed.
+    assert "PreToolUse" in out and "UserPromptSubmit" in out
+    assert not (tmp_path / ".claude" / "settings.json").exists()
+
+
+def test_install_hook_write_settings_merges_idempotently(tmp_path: Path, capsys) -> None:
+    settings = tmp_path / ".claude" / "settings.json"
+    rc = main(
+        ["install-hook", "claude-code", "--dir", str(tmp_path), "--write-settings"]
+    )
+    capsys.readouterr()
+    assert rc == 0
+    assert settings.exists()
+    first = json.loads(settings.read_text())
+    assert len(first["hooks"]["PreToolUse"]) == 1
+    # Re-running must not duplicate the hook entries.
+    main(["install-hook", "claude-code", "--dir", str(tmp_path), "--write-settings", "--force"])
+    capsys.readouterr()
+    second = json.loads(settings.read_text())
+    assert len(second["hooks"]["PreToolUse"]) == 1
 
 
 def test_check_resolves_bundled_spec_relative_path(capsys) -> None:

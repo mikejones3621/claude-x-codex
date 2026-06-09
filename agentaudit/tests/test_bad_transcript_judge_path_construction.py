@@ -6,7 +6,6 @@ from pathlib import Path
 
 from agentaudit import JudgeFinding, check, load_spec, load_transcript
 
-
 REPO = Path(__file__).resolve().parent.parent
 SPECS = REPO / "src" / "agentaudit" / "specs"
 FIXTURE = REPO / "examples" / "bad-transcript-obfuscated-path-construction.jsonl"

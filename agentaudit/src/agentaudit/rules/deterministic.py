@@ -27,7 +27,8 @@ Rule types:
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from agentaudit.checker import Violation
 from agentaudit.rules import register
@@ -35,12 +36,12 @@ from agentaudit.schema import Event, EventKind, Transcript
 from agentaudit.spec import Rule
 from agentaudit.text import normalize_for_match
 
-
 _DEFAULT_SCOPE = ("message", "tool_result", "tool_call", "reasoning")
 
 
 def _scope(rule: Rule) -> tuple[EventKind, ...]:
     raw = rule.params.get("scope")
+    names: tuple[str, ...]
     if not raw:
         names = _DEFAULT_SCOPE
     elif isinstance(raw, str):
