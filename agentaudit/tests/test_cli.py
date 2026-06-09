@@ -5,7 +5,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agentaudit.cli import _auto_load, main
+from agentaudit.cli import _auto_load, _resolve_spec_path, main
+
+
+def test_resolve_spec_path_accepts_specs_prefix() -> None:
+    # The bundled dir is named `specs/`, so `specs/<name>` should resolve
+    # to the same file as the bare `<name>` (this is how the in-repo
+    # recipes and CI reference bundled specs).
+    bare = Path(_resolve_spec_path("no-secret-leak.md"))
+    prefixed = Path(_resolve_spec_path("specs/no-secret-leak.md"))
+    assert bare.exists()
+    assert prefixed == bare
+    nested = Path(_resolve_spec_path("specs/openai-agents/tool-allowlist.md"))
+    assert nested.exists()
+    assert nested.name == "tool-allowlist.md"
 
 
 def test_list_adapters_prints_registered_adapters(capsys) -> None:

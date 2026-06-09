@@ -480,6 +480,16 @@ def _resolve_spec_path(spec_path: str | Path) -> str | Path:
     candidate = specs_dir / p
     if candidate.exists():
         return candidate
+
+    # The bundled directory is itself named `specs/`, so a `specs/`-prefixed
+    # reference (e.g. `specs/no-secret-leak.md`) is a natural thing to type
+    # and is how the in-repo recipes refer to specs. Resolve it against the
+    # bundled dir by dropping the leading `specs/` component.
+    if p.parts and p.parts[0] == "specs":
+        nested = specs_dir / Path(*p.parts[1:])
+        if nested.exists():
+            return nested
+
     return spec_path
 
 
